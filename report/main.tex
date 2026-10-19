@@ -331,6 +331,7 @@ In this question, we will try to recognize objects in natural images from the PA
         \item Describe the hyperparameters you experimented with and the effects they had on the train and test metrics.
 
         \begin{solution}
+
 I read each image's XML annotations into a 20-class binary label vector.
 Following the starter, a class receives zero weight if any instance of that
 class is marked difficult. Q1 uses PyTorch's
