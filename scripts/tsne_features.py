@@ -22,7 +22,7 @@ def main():
     torch.set_num_threads(8)
     course = ROOT.parent
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
-    model = torch.load(course/'checkpoints/starter_revision/checkpoint-q2-epoch50.pth',
+    model = torch.load(course/'checkpoints/q2_epoch_revision/checkpoint-q2_epoch_rerun-epoch50.pth',
                        map_location=device)
     model.eval()
     dataset = VOCDataset('test',224,str(course/'data/VOCdevkit/VOC2007'))
@@ -53,7 +53,7 @@ def main():
     fig.tight_layout()
     fig.savefig(ROOT/'report/figures/q2_tsne.png',dpi=180)
     plt.close(fig)
-    output = course/'runs/starter_revision/q2'
+    output = course/'runs/q2_epoch_revision/q2_epoch_rerun'
     np.savez_compressed(output/'tsne.npz',indices=indices,features=features,labels=labels,
                         projection=projection,colors=colors)
     (output/'tsne_config.json').write_text(json.dumps(dict(seed=0,n_images=1000,

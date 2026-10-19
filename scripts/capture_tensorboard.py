@@ -28,10 +28,12 @@ def main():
         if args.question == 'q2':
             for name, tag in [('q2_hist_conv', r'^resnet\.layer1\.1\.conv1\.weight/grad$'),
                               ('q2_hist_bn', r'^resnet\.layer4\.0\.bn2\.bias/grad$')]:
-                page = open_dashboard(browser, args.url, 'histograms', 'q2', tag)
+                page = open_dashboard(browser, args.url, 'histograms', 'q2_epoch_rerun', tag)
                 page.locator('paper-icon-button[icon="fullscreen"]').first.click()
                 page.wait_for_timeout(1000)
-                page.locator('tf-histogram-loader').first.screenshot(path=str(figures / (name + '.png')))
+                native = ROOT.parent / 'runs/q2_epoch_revision/native_histograms'
+                native.mkdir(exist_ok=True)
+                page.locator('tf-histogram-loader').first.screenshot(path=str(native / (name + '.png')))
                 page.close()
         else:
             page = open_dashboard(browser, args.url, 'images', 'fcos_inference', '^test_images$')

@@ -392,7 +392,7 @@ Hopefully, we get much better accuracy with the deeper models! Since 2012, much 
         \centering
         % TODO: put your plot here.
         \includegraphics[width=0.95\linewidth,height=0.42\textheight,keepaspectratio]{report/figures/q2_map.png}
-        \caption{\texttt{mAP} for ResNet}
+        \caption{\texttt{mAP} for ResNet. Raw logged values, with a zoom of epochs 5--50.}
         \label{fig:q2_map}
         \end{figure}
         
@@ -400,36 +400,40 @@ Hopefully, we get much better accuracy with the deeper models! Since 2012, much 
         \centering
         % TODO: put your plot here.
         \includegraphics[width=0.95\linewidth,height=0.42\textheight,keepaspectratio]{report/figures/q2_loss.png}
-        \caption{\texttt{Loss/Train} for ResNet}
+        \caption{\texttt{Loss/Train} for ResNet. Raw minibatch losses on a logarithmic scale.}
         \label{fig:q2_training_loss}
         \end{figure}
 
         \item How does the test mAP and training loss change over time? Why do you think this is happening?
 
         \begin{solution}
-Training loss falls from 0.7541 at the first logged minibatch to 0.0022 at
-step 3,900. Test mAP rises from 0.0997 after the first update to 0.7603 at
-step 70 and 0.8037 at step 140. The final score after 50 epochs is 0.8331;
-the highest logged score is 0.8340 at step 350, during epoch five.
+I fine-tuned the ImageNet-pretrained ResNet-18 for 50 epochs, using Adam,
+learning rate 0.0001, batch size 64, and seed 0. I replaced its classifier
+with a new 512-to-20 linear layer and trained all layers on 224-by-224 images.
+StepLR multiplied the learning rate by 0.3 after epochs 15, 30, and 45.
 
-The ImageNet features transfer well, so the early updates provide most of the
-improvement. Later, training loss keeps falling while test mAP largely
-plateaus. The model fits the training data more closely without comparable
-test gains. Learning-rate drops reduce update sizes but do not remove this gap.
+Training loss decreased from 0.7541 to 0.0021 at the last logged
+minibatch, near epoch 49.38. Test mAP rose from 0.0997 after the
+first update to a final score of 0.8340. The highest logged mAP was
+0.8346, near epoch 25.71.
 
-I use torchvision's pretrained ResNet-18, replace its classifier with a new
-512-to-20 linear layer, and fine-tune all layers on $224\times224$ images.
-Adam starts at $10^{-4}$ with batch size 64 and seed 0. StepLR multiplies the
-rate by 0.3 every 15 epochs. The final 50-epoch checkpoint supplies the t-SNE
-features. The assignment uses the test curve for comparison, so these scores
-do not provide an independent held-out estimate of model selection.
+Most of the test improvement happened early because the pretrained features
+already transferred well. Later, training loss kept falling while test mAP
+fluctuated around a plateau. Fitting the training data more closely did not
+produce comparable test gains.
+
+Both figures use raw TensorBoard values without smoothing. Loss is logged
+for one minibatch every 100 updates; the logarithmic scale makes its late
+variation visible. The full mAP axis includes the low first score, which
+compresses later fluctuations. The second panel shows those fluctuations
+more clearly. The final 50-epoch checkpoint supplies the t-SNE features.
 \end{solution}
         
         \begin{figure}[H]
         \centering
         % TODO: put your plot here.
         \includegraphics[width=0.95\linewidth,height=0.42\textheight,keepaspectratio]{report/figures/q2_hist_conv.png}
-        \caption{Histogram of \texttt{Conv1} layer}
+        \caption{Gradient histograms of the \texttt{Conv1} layer. Bins and axis limits match Figure~\ref{fig:q2_bn}.}
         \label{fig:q2_histogram_conv1}
         \end{figure}
         
@@ -437,26 +441,34 @@ do not provide an independent held-out estimate of model selection.
         \centering
         % TODO: put your plot here.
         \includegraphics[width=0.95\linewidth,height=0.42\textheight,keepaspectratio]{report/figures/q2_hist_bn.png}
-        \caption{Histogram of \texttt{BN4} layer}
+        \caption{Gradient histograms of the \texttt{BN4} layer. Each panel is normalized to unit area.}
         \label{fig:q2_bn}
         \end{figure}
 
         \item Compare the two histogram plots. How do they change over time? Why do you think this is happening?
 
         \begin{solution}
-These are TensorBoard's own histogram displays for the two requested parameters.
-Both gradient distributions become narrower around zero over training, with
-variation between minibatches. For \texttt{layer1.1.conv1.weight}, the gradient
-standard deviation falls from $1.59\times10^{-4}$ at step 0 to
-$2.57\times10^{-5}$ at step 3,900. For \texttt{layer4.0.bn2.bias}, it falls
-from $5.69\times10^{-4}$ to $3.77\times10^{-5}$.
+Each panel shows the gradients from one logged minibatch, near epochs
+1.28, 25.33, and 49.38. The horizontal axis is the
+gradient value. The vertical axis is probability density: the area over a
+range gives the fraction of parameters with gradients in that range. All
+six panels use the same bins and axis limits. Normalization makes the
+36,864 convolution gradients comparable with the 512 batch-normalization
+bias gradients.
 
-Smaller gradients are consistent with the falling training loss. The
-convolution adjusts spatial features, while the later batch-normalization
-bias shifts feature channels near the classifier. Their gradient scales and
-shapes therefore differ; a smaller gradient alone does not imply better
-learning. The scheduler directly scales parameter updates, rather than the
-gradients shown here.
+The starter already logs these gradients through TensorBoard after
+backpropagation. I combine adjacent stored histogram bins onto shared
+boundaries, preserving all counts without interpolation. The panels show
+early, middle, and late training without the overlapping slices of the
+TensorBoard display.
+
+Both distributions become narrower near zero. The convolution's gradient
+standard deviation decreases from 0.000116 to 0.000022; the
+batch-normalization bias changes from 0.000180 to 0.000035.
+This agrees with the falling training loss. The two parameters have different
+roles and scales, so a larger gradient does not imply better learning.
+The learning-rate schedule directly changes update sizes; it does not
+directly multiply the gradients shown here.
 \end{solution}
         
         \item We can also visualize how the feature representations specialize for different classes. Take 1000 random images from the test set of PASCAL, and extract ImageNet (finetuned) features from those images. Compute a 2D t-SNE (use \href{https://scikit-learn.org/stable/modules/generated/sklearn.manifold.TSNE.html}{sklearn}) projection of the features, and plot them with each feature color-coded by the GT class of the corresponding image. If multiple objects are active in that image, compute the color as the ``mean” color of the different classes active in that image. Add a legend explaining the mapping from color to object class. 

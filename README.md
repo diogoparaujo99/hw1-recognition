@@ -17,10 +17,12 @@ Run classification commands from the repository root and detection commands from
 
 ```text
 ../data/                       VOC2007 images, XML and detection JSON
-../checkpoints/starter_revision/ Q2 and detector checkpoints
+../checkpoints/starter_revision/ Detector and earlier Q2 checkpoints
 ../checkpoints/q1_bce_revision/  Fresh Q1 checkpoints
+../checkpoints/q2_epoch_revision/ Fresh Q2 checkpoint
 ../runs/starter_revision/       Q2 and detector events and terminal logs
 ../runs/q1_bce_revision/         Fresh Q1 events, commands and measurements
+../runs/q2_epoch_revision/       Fresh Q2 events, commands and measurements
 ../tools/mAP/                   Unmodified Cartucho evaluator
 ../build/                       Compiled report and temporary files
 ../submission/                  PDF and Python files only
@@ -46,9 +48,9 @@ VLR_RUN_NAME=q1_bce_lr001_noaug VLR_AUGMENT=0 VLR_LR=0.001 python q1_q2_classifi
 VLR_RUN_NAME=q1_bce_lr001_aug VLR_AUGMENT=1 VLR_LR=0.001 python q1_q2_classification/train_q1.py
 VLR_RUN_NAME=q1_bce_lr0003_noaug VLR_AUGMENT=0 VLR_LR=0.0003 python q1_q2_classification/train_q1.py
 VLR_RUN_NAME=q1_bce_lr0003_aug VLR_AUGMENT=1 VLR_LR=0.0003 python q1_q2_classification/train_q1.py
-export VLR_LOG_ROOT="$PWD/../runs/starter_revision"
-export VLR_CHECKPOINT_ROOT="$PWD/../checkpoints/starter_revision"
-VLR_RUN_NAME=q2 python q1_q2_classification/train_q2.py
+export VLR_LOG_ROOT="$PWD/../runs/q2_epoch_revision"
+export VLR_CHECKPOINT_ROOT="$PWD/../checkpoints/q2_epoch_revision"
+VLR_RUN_NAME=q2_epoch_rerun VLR_LR=0.0001 VLR_AUGMENT=1 python q1_q2_classification/train_q2.py
 ```
 
 The only extra experiment controls are environment variables for the required augmentation comparison, learning-rate comparison, run names, and output directories. Q1 runs five epochs at 64×64; Q2 runs 50 epochs at 224×224. Both use seed 0 and the supplied architecture/optimizer choices. Q1 uses `BCEWithLogitsLoss(reduction="none")` directly on logits, then averages over the difficult-label mask with `(elementwise_loss * wgt).sum() / wgt.sum().clamp_min(1)`. The assignment permits a PyTorch loss; this explicitly authorized choice overrides the loss TODO comment for Q1. A model-type check keeps Q2 on its existing manual stable BCE. Ordinary inputs, extreme logits, masked labels, and all-masked batches were checked for matching losses and gradients; Q2 was checked separately. Q2 replaces the pretrained classifier with a 512-to-20 linear layer and fine-tunes all layers.
@@ -60,6 +62,8 @@ Fresh Q1 commands, settings, source hashes, loss checks, and measured results ar
 Follow the original [detection README](detection/README.md):
 
 ```shell
+export VLR_LOG_ROOT="$PWD/../runs/starter_revision"
+export VLR_CHECKPOINT_ROOT="$PWD/../checkpoints/starter_revision"
 cd detection
 python -m test_object_detection
 python train.py --visualize_gt
@@ -86,20 +90,22 @@ python scripts/make_figures.py
 python -m tensorboard.main --logdir ../runs/starter_revision --host 127.0.0.1 --port 6006 --load_fast=false
 ```
 
-Q1 report plots convert logged steps to epochs using the 79 minibatches per epoch. They show at most five epochs; the learning-rate change occurs at epoch three.
+Classification plots convert logged steps to epochs using the 79 minibatches per epoch. Q1 stops at five epochs and Q2 at 50. The Q2 mAP figure shows both the full raw curve and a labeled zoom of epochs 5–50; its loss figure uses a logarithmic y-axis. No smoothing or averaging is applied. Q2 retains loss logging every 100 updates and mAP evaluation every 70 updates.
 
-For the fresh Q1 dashboard, use `--logdir ../runs/q1_bce_revision` in the TensorBoard command.
+For the fresh Q1 dashboard, use `--logdir ../runs/q1_bce_revision` in the TensorBoard command. For fresh Q2, use `--logdir ../runs/q2_epoch_revision --port 6007`. Its commands, unchanged training settings, source hashes, and results are recorded in that directory.
 
 The assignment provides no t-SNE implementation or combined scalar/loss plotting function, so the small scripts handle those deliverables. t-SNE uses the final 50-epoch model, 1,000 distinct test images, seed 0, the 512-dimensional pooled features, sklearn, and the required mean RGB class colors. Detector loss curves sum the three losses already logged by the starter.
 
-For screenshots, install optional browser tooling with `python -m pip install playwright` and `python -m playwright install chromium`, then run:
+The starter already logs gradients using `SummaryWriter.add_histogram` after backpropagation and before the optimizer update. It provides no static histogram plotting template. Q2 now uses three flat histogram panels per layer, selected nearest epochs 1, 25, and 50 and labeled with the actual recorded epochs. Native TensorBoard buckets are combined onto common boundaries without interpolation. Counts are divided by parameter count and bin width so each density integrates to one. Both layers share gradient and density limits; no tails are excluded.
+
+For optional native TensorBoard screenshots, install browser tooling with `python -m pip install playwright` and `python -m playwright install chromium`, then run:
 
 ```shell
-python scripts/capture_tensorboard.py --question q2
+python scripts/capture_tensorboard.py --question q2 --url http://127.0.0.1:6007
 python scripts/capture_tensorboard.py --question q3
 ```
 
-These capture TensorBoard's own histogram rendering and the visible first two images of the unchanged ten-image grid. The original LaTeX packages, questions, and collaboration survey are preserved. Complete the survey before submitting.
+The Q2 command saves the native stacked display under `../runs/q2_epoch_revision/native_histograms/` for reference. The Q3 command captures the visible first two images of the unchanged ten-image inference grid. The original LaTeX packages, questions, and collaboration survey are preserved. Complete the survey before submitting.
 
 Compile the top-level `main.tex` in Overleaf, or locally:
 
