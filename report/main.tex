@@ -331,12 +331,7 @@ In this question, we will try to recognize objects in natural images from the PA
         \item Describe the hyperparameters you experimented with and the effects they had on the train and test metrics.
 
         \begin{solution}
-For each image, I read its XML objects and set the corresponding entries of a
-20-dimensional label vector to one. Following the starter, an image/class pair
-has zero weight if any object of that class is marked difficult. This excludes
-ambiguous labels from the loss. Since an image can contain several classes, I
-use independent binary predictions. The stable manual loss for a logit $z$ and
-label $y$ is $\max(z,0)-zy+\log(1+e^{-|z|})$, averaged over nonzero weights.
+For each image, I read its XML objects and set the corresponding entries of a 20-dimensional label vector to one. Following the starter, an image/class pair has zero weight if any object of that class is marked difficult. This excludes ambiguous labels from the loss. Since an image can contain several classes, I use independent binary predictions. The stable manual loss for a logit $z$ and label $y$ is $\max(z,0)-zy+\log(1+e^{-|z|})$, averaged over nonzero weights.
 This implements binary cross-entropy without a built-in loss function.
 
 The required $64\times64$ input passes through two size-preserving convolutions
