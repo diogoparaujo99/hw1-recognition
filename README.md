@@ -86,6 +86,8 @@ python scripts/make_figures.py
 python -m tensorboard.main --logdir ../runs/starter_revision --host 127.0.0.1 --port 6006 --load_fast=false
 ```
 
+Q1 report plots convert logged steps to epochs using the 79 minibatches per epoch. They show at most five epochs; the learning-rate change occurs at epoch three.
+
 For the fresh Q1 dashboard, use `--logdir ../runs/q1_bce_revision` in the TensorBoard command.
 
 The assignment provides no t-SNE implementation or combined scalar/loss plotting function, so the small scripts handle those deliverables. t-SNE uses the final 50-epoch model, 1,000 distinct test images, seed 0, the 512-dimensional pooled features, sklearn, and the required mean RGB class colors. Detector loss curves sum the three losses already logged by the starter.

@@ -17,14 +17,27 @@ def scalars(run, tag):
 
 def plot(runs, tag, filename, ylabel):
     fig, ax = plt.subplots(figsize=(7, 3.2))
+    q1 = filename.startswith('q1_')
     for run, label in runs:
         values = scalars(run, tag)
+        steps = [v.step for v in values]
+        if q1:
+            rates = scalars(run, 'learning_rate')
+            steps_per_epoch = rates[0].step
+            # Minibatch tags use zero-based indices; the final mAP and LR
+            # use completed-update counts in the starter's logging loop.
+            if tag != 'learning_rate':
+                steps = [min(step + 1, rates[-1].step) for step in steps]
+            steps = [step / steps_per_epoch for step in steps]
         if tag == 'learning_rate':
-            ax.step([0] + [v.step for v in values],
+            ax.step([0] + steps,
                     [values[0].value] + [v.value for v in values], where='post', label=label)
         else:
-            ax.plot([v.step for v in values], [v.value for v in values], label=label)
-    ax.set(xlabel='Training step', ylabel=ylabel)
+            ax.plot(steps, [v.value for v in values], label=label)
+    ax.set(xlabel='Epoch' if q1 else 'Training step', ylabel=ylabel)
+    if q1:
+        ax.set_xlim(0, 5)
+        ax.set_xticks(range(6))
     if len(runs) > 1:
         ax.legend()
     fig.tight_layout()

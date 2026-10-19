@@ -331,27 +331,19 @@ In this question, we will try to recognize objects in natural images from the PA
         \item Describe the hyperparameters you experimented with and the effects they had on the train and test metrics.
 
         \begin{solution}
-I read each image's XML annotations into a 20-class binary label vector.
-Following the starter, a class receives zero weight if any instance of that
-class is marked difficult. Q1 uses PyTorch's
-\texttt{BCEWithLogitsLoss(reduction="none")} directly on raw logits, with no
-sigmoid beforehand. It computes numerically stable binary cross-entropy for
-each image/class pair. I retain the masked average
-\[
-L=\frac{\sum_{i,c}w_{ic}\ell(z_{ic},y_{ic})}
-        {\max(1,\sum_{i,c}w_{ic})}.
-\]
-The mask excludes difficult labels from both the loss and its gradients.
-The built-in and manual expressions agree on representative inputs, including
-extreme logits and masked labels; their gradients are finite. Q2 retains its
-manual loss.
+We tested learning rates of 0.001 and 0.0003, each with and without data
+augmentation. All four runs used Adam, batch size 64, seed 0, and five epochs.
+StepLR halved the learning rate after epoch three. Augmentation used random
+horizontal flips and crops with four-pixel reflection padding.
 
-The supplied CNN maps $64\times64$ inputs to $64\times16\times16$ features,
-so the flattened dimension is 16,384. All four runs use Adam, five epochs,
-batch size 64, and seed 0. StepLR halves the rate after epoch three.
-Augmentation uses horizontal flips and a 64-pixel crop after four-pixel
-reflection padding. Evaluation preprocessing and the protected metric
-functions are unchanged.
+A smaller learning rate takes smaller steps and may need more epochs to
+converge. At 0.0003, both runs finished with higher logged training loss and
+lower test mAP than at 0.001. This is consistent with slower learning within
+the same training budget. Test mAP was still improving near epoch five for
+both rates, so these curves do not establish convergence. Both rates exceeded
+the approximate 0.22 target. A rate that is too high can overshoot and make
+training unstable, but we did not observe sustained instability at 0.001.
+We did not test a higher rate.
 
 \begin{center}
 \begin{tabular}{llll}
@@ -364,20 +356,13 @@ Initial LR & Augmentation & Last logged loss & Final test mAP \\
 \end{tabular}
 \end{center}
 
-At initial rate 0.001, augmentation improves final mAP by 0.0066;
-at 0.0003, it improves mAP by 0.0046. Augmented examples have
-higher last logged training loss but better test scores. The lower rate
-learns more slowly within this five-epoch budget and gives lower final mAP.
-I select the augmented 0.001 run by final test mAP: 0.2610, above the
-approximate 0.22 target. Its last logged minibatch loss is 0.1729
-at step 390, and its final learning rate is 0.0005. These losses are
-individual logged minibatches, not epoch averages. Both comparison figures
-use initial rate 0.001; the other three figures show the selected run.
-
-The supplied evaluator averages AP over test batches of 1,000. I use that
-procedure for every run. These single-seed test-set comparisons describe the
-assignment experiments; they do not establish that the differences hold
-across seeds.
+Augmentation increased the last logged training loss but improved final test
+mAP at both learning rates. The transformed images were harder to fit, while
+the test results suggest better generalization. Our best run used 0.001 with
+augmentation: final mAP was 0.2610, the last logged minibatch loss was 0.1729,
+and the final learning rate was 0.0005. The losses in the table are individual
+logged minibatches, not epoch averages. The augmentation comparison plots use
+the same initial learning rate, 0.001.
 \end{solution}
     \end{itemize}
 \end{itemize}
