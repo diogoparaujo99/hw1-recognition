@@ -169,8 +169,8 @@ def detection_visualizer(img, idx_to_class, bbox=None, pred=None, points=None):
     # fmt:
     ax.margins(0)
     fig.canvas.draw()
-    image_from_plot = np.frombuffer(fig.canvas.tostring_rgb(), dtype=np.uint8)
-    image_from_plot = image_from_plot.reshape(fig.canvas.get_width_height()[::-1] + (3,))
+    image_from_plot = np.asarray(fig.canvas.buffer_rgba())[:, :, :3].copy()
+    plt.close(fig)
 
     return image_from_plot.transpose(2, 0, 1)
 

@@ -2,13 +2,13 @@
 You will use this script to train your object detection model.
 
 Arguments:
---overfit: This argument is default on, and will run training on a small
+--overfit: This flag runs training on a small
            subset of images. This is to test whether the model can overfit
            to a small dataset.
 --inference: This argument is whether to run model inference or not. You 
            use this flag to test model training before you implement the 
            inference component.
---test_inference: This argument is default on, and will run inference on a
+--test_inference: This flag runs inference on a
            small subset of images. This is to test whether the model can
            successfully perform inference and to check whether predictions
            are reasonable. If this flag is off, inference will be run on the
@@ -18,6 +18,11 @@ Arguments:
 import argparse
 from dataclasses import dataclass
 import os
+from pathlib import Path
+import subprocess
+import json
+import random
+import numpy as np
 import matplotlib.pyplot as plt
 import torch
 from torch.utils.tensorboard import SummaryWriter
@@ -40,7 +45,8 @@ NUM_CLASSES = 20
 BATCH_SIZE = 16
 IMAGE_SHAPE = (224, 224)
 NUM_WORKERS = 12
-DATASET_PATH = "../data"
+COURSE_DIR = Path(__file__).resolve().parents[2]
+DATASET_PATH = str(COURSE_DIR / 'data')
 
 @dataclass
 class HyperParameters:
@@ -59,7 +65,7 @@ class HyperParameters:
 def create_dataset_and_dataloaders(subset=False):
     train_dataset = VOC2007DetectionTiny(
         DATASET_PATH, "train", image_size=IMAGE_SHAPE[0],
-        download=True# True (set to False after the first time)
+        download=False
     )
     if subset:
         small_dataset = torch.utils.data.Subset(
@@ -75,9 +81,7 @@ def create_dataset_and_dataloaders(subset=False):
         train_dataset, batch_size=BATCH_SIZE, pin_memory=True, num_workers=NUM_WORKERS
     )
 
-    # Use batch_size = 1 during inference - during inference we do not center crop
-    # the image to detect all objects, hence they may be of different size. It is
-    # easier and less redundant to use batch_size=1 rather than zero-padding images.
+    # Keep the starter's inference batch size and center-crop preprocessing.
     val_loader = torch.utils.data.DataLoader(
         val_dataset, batch_size=1, pin_memory=True, num_workers=NUM_WORKERS
     )
@@ -101,7 +105,7 @@ def train_model(detector, train_loader, hyperparams, overfit=False):
     return
 
 def visualize_gt(train_dataset, val_dataset):
-    writer = SummaryWriter("detection_logs")
+    writer = SummaryWriter(str(Path(os.environ.get('VLR_LOG_ROOT', COURSE_DIR / 'runs')) / 'fcos_gt'))
     inverse_norm = transforms.Compose(
         [
             transforms.Normalize(mean=[0., 0., 0.], std=[1 / 0.229, 1 / 0.224, 1 / 0.225]),
@@ -125,6 +129,14 @@ def visualize_gt(train_dataset, val_dataset):
     writer.close()
 
 def main(args):
+    global DATASET_PATH
+    DATASET_PATH = args.data_root
+    random.seed(args.seed)
+    np.random.seed(args.seed)
+    torch.manual_seed(args.seed)
+    torch.set_num_threads(8)
+    os.environ['VLR_LOG_ROOT'] = args.log_root
+    os.environ['VLR_CHECKPOINT_ROOT'] = args.checkpoint_root
     print("Loading data...")
     
     if args.overfit:
@@ -147,6 +159,19 @@ def main(args):
             max_iters=9000,
             log_period=100,
         )
+    if args.max_iters is not None:
+        hyperparams.max_iters = args.max_iters
+    if args.lr is not None:
+        hyperparams.lr = args.lr
+    run_name = 'fcos_overfit' if args.overfit else 'fcos_full'
+    run_dir = Path(args.log_root) / run_name
+    run_dir.mkdir(parents=True, exist_ok=True)
+    if not args.inference and not args.visualize_gt:
+        settings = vars(args).copy()
+        settings.update(lr=hyperparams.lr, max_iters=hyperparams.max_iters,
+                        batch_size=BATCH_SIZE, image_size=224, momentum=0.9,
+                        weight_decay=1e-4, fpn_channels=64, stem_channels=[64,64])
+        (run_dir / 'config.json').write_text(json.dumps(settings, indent=2))
     detector = FCOS(
         num_classes=NUM_CLASSES,
         fpn_channels=64,
@@ -175,7 +200,7 @@ def main(args):
             small_dataset, batch_size=1, pin_memory=True, num_workers=NUM_WORKERS
         )
         # Modify this depending on where you save your weights.
-        weights_path = os.path.join(".", "fcos_detector.pt")
+        weights_path = str(Path(args.checkpoint_root) / 'fcos_full.pt')
 
         # Re-initialize so this cell is independent from prior cells.
         detector = FCOS(
@@ -195,9 +220,9 @@ def main(args):
         )
     else:
         print("Running inference and computing mAP...")
-        assert os.path.exists("mAP")
+        assert Path(args.map_root).is_dir()
         # Modify this depending on where you save your weights.
-        weights_path = os.path.join(".", "fcos_detector.pt")
+        weights_path = str(Path(args.checkpoint_root) / 'fcos_full.pt')
         detector.to(device=DEVICE)
         detector.load_state_dict(torch.load(weights_path, map_location="cpu"))
         inference_with_detector(
@@ -208,10 +233,10 @@ def main(args):
             nms_thresh=0.6,
             device=DEVICE,
             dtype=torch.float32,
-            output_dir="mAP/input",
+            output_dir=str(Path(args.map_root) / 'input'),
         )
-        os.system("cd mAP && python main.py")
-        print("Output file written to ./mAP/output/mAP.png")
+        subprocess.run([os.sys.executable, 'main.py', '--no-animation', '--no-plot'], cwd=args.map_root, check=True)
+        print('Evaluation written to', Path(args.map_root) / 'output' / 'output.txt')
         
 
 if __name__ == '__main__':
@@ -220,6 +245,13 @@ if __name__ == '__main__':
     parser.add_argument("--overfit", action="store_true")
     parser.add_argument("--inference", action="store_true")
     parser.add_argument("--test_inference", action="store_true")
+    parser.add_argument('--data-root', default=str(COURSE_DIR / 'data'))
+    parser.add_argument('--log-root', default=str(COURSE_DIR / 'runs'))
+    parser.add_argument('--checkpoint-root', default=str(COURSE_DIR / 'checkpoints'))
+    parser.add_argument('--map-root', default=str(COURSE_DIR / 'tools' / 'mAP'))
+    parser.add_argument('--max-iters', type=int)
+    parser.add_argument('--lr', type=float)
+    parser.add_argument('--seed', type=int, default=0)
     args = parser.parse_args()
     print(args.visualize_gt)
     print(args.overfit)
