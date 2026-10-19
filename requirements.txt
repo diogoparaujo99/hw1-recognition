@@ -1,6 +1,6 @@
 imageio
 matplotlib
-numpy==1.26.4
+numpy
 opencv-python
 Pillow==9.4.0
 scikit-learn
@@ -9,6 +9,3 @@ torch==2.3.0
 torchvision==0.18.0
 tqdm
 wget==3.2
-
-protobuf==3.19.6
-setuptools<81

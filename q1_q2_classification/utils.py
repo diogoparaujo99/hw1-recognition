@@ -25,12 +25,6 @@ class ARGS(object):
         args.test_batch_size = 1000
         args.val_every = 100
     """
-    augment = True
-    seed = 0
-    run_name = 'model'
-    data_root = 'data/VOCdevkit/VOC2007'
-    log_root = '../runs'
-    checkpoint_root = '../checkpoints'
     # input batch size for training 
     batch_size = 64
     # input batch size for testing
@@ -73,10 +67,10 @@ class ARGS(object):
         return torch.device("cuda" if self.use_cuda else "cpu")
 
 
-def get_data_loader(name='voc', train=True, batch_size=64, split='train', inp_size=224, data_root='data/VOCdevkit/VOC2007', augment=True):
+def get_data_loader(name='voc', train=True, batch_size=64, split='train', inp_size=224):
     if name == 'voc':
         from voc_dataset import VOCDataset
-        dataset = VOCDataset(split, inp_size, data_dir=data_root, augment=augment)
+        dataset = VOCDataset(split, inp_size)
     else:
         raise NotImplementedError
 
@@ -85,8 +79,6 @@ def get_data_loader(name='voc', train=True, batch_size=64, split='train', inp_si
         batch_size=batch_size,
         shuffle=train,
         num_workers=4,
-        pin_memory=torch.cuda.is_available(),
-        persistent_workers=True,
     )
     return loader
 

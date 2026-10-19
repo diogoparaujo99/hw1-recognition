@@ -393,7 +393,7 @@ class FCOS(nn.Module):
         # Perform EMA update of normalizer by number of positive locations.
         num_pos_locations = (matched_gt_boxes[:, :, 4] != -1).sum()
         pos_loc_per_image = num_pos_locations.item() / images.shape[0]
-        self._normalizer = max(0.9 * self._normalizer + 0.1 * pos_loc_per_image, 1e-6)
+        self._normalizer = 0.9 * self._normalizer + 0.1 * pos_loc_per_image
 
         ######################################################################
         # TODO: Calculate losses per location for classification, box reg and
@@ -466,8 +466,6 @@ class FCOS(nn.Module):
                   to corresponding logits.
         """
 
-        test_score_thresh = 0.3 if test_score_thresh is None else test_score_thresh
-        test_nms_thresh = 0.5 if test_nms_thresh is None else test_nms_thresh
         # Gather scores and boxes from all FPN levels in this list. Once
         # gathered, we will perform NMS to filter highly overlapping predictions.
         pred_boxes_all_levels = []
@@ -507,8 +505,10 @@ class FCOS(nn.Module):
 
             # Compute geometric mean of class logits and centerness:
             level_pred_scores = torch.sqrt(
-                level_cls_logits.sigmoid() * level_ctr_logits.sigmoid()
+                level_cls_logits.sigmoid_() * level_ctr_logits.sigmoid_()
             )
+            test_score_thresh = 0.3 if test_score_thresh is None else test_score_thresh
+            test_nms_thresh = 0.5 if test_nms_thresh is None else test_nms_thresh
             level_pred_scores, level_pred_classes = level_pred_scores.max(dim=1)
             keep = level_pred_scores > test_score_thresh
             level_pred_scores = level_pred_scores[keep]

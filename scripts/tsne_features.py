@@ -1,5 +1,4 @@
 """Project fine-tuned Q2 features and blend colors of active GT classes."""
-import argparse
 import json
 from pathlib import Path
 import sys
@@ -20,19 +19,14 @@ from voc_dataset import VOCDataset
 
 
 def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--run-name', default='q2_lr0001')
-    parser.add_argument('--seed', type=int, default=0)
-    args = parser.parse_args()
     torch.set_num_threads(8)
     course = ROOT.parent
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
-    checkpoint = torch.load(course/'checkpoints'/args.run_name/'best.pt', map_location='cpu')
-    model = ResNet(20).to(device)
-    model.load_state_dict(checkpoint['model'])
+    model = torch.load(course/'checkpoints/starter_revision/checkpoint-q2-epoch50.pth',
+                       map_location=device)
     model.eval()
-    dataset = VOCDataset('test',224,str(course/'data/VOCdevkit/VOC2007'),augment=False)
-    indices = np.random.default_rng(args.seed).choice(len(dataset),1000,replace=False)
+    dataset = VOCDataset('test',224,str(course/'data/VOCdevkit/VOC2007'))
+    indices = np.random.default_rng(0).choice(len(dataset),1000,replace=False)
     loader = DataLoader(Subset(dataset,indices),batch_size=128,num_workers=4)
     features, labels = [], []
     captured = []
@@ -46,7 +40,7 @@ def main():
     features = torch.cat(features).numpy()
     labels = torch.cat(labels).numpy()
     projection = TSNE(n_components=2,perplexity=30,init='pca',learning_rate='auto',
-                      max_iter=1500,random_state=args.seed).fit_transform(features)
+                      max_iter=1500,random_state=0).fit_transform(features)
     base_colors = np.array(plt.get_cmap('tab20').colors)
     colors = labels @ base_colors / labels.sum(axis=1,keepdims=True)
     fig, ax = plt.subplots(figsize=(8,6))
@@ -59,13 +53,13 @@ def main():
     fig.tight_layout()
     fig.savefig(ROOT/'report/figures/q2_tsne.png',dpi=180)
     plt.close(fig)
-    output = course/'runs'/args.run_name
+    output = course/'runs/starter_revision/q2'
     np.savez_compressed(output/'tsne.npz',indices=indices,features=features,labels=labels,
                         projection=projection,colors=colors)
-    (output/'tsne_config.json').write_text(json.dumps(dict(seed=args.seed,n_images=1000,
-        checkpoint_epoch=checkpoint['epoch'],feature_dim=512,perplexity=30,
+    (output/'tsne_config.json').write_text(json.dumps(dict(seed=0,n_images=1000,
+        checkpoint_epoch=50,feature_dim=512,perplexity=30,
         max_iter=1500,init='pca',learning_rate='auto'),indent=2))
-    print('Saved t-SNE of',features.shape,'features from checkpoint epoch',checkpoint['epoch'])
+    print('Saved t-SNE of',features.shape,'features from the final 50-epoch checkpoint')
 
 
 if __name__ == '__main__':

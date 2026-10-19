@@ -7,7 +7,7 @@ import numpy as np
 import torchvision
 import torch.nn as nn
 import random
-from config import parse_args
+import os
 
 
 class ResNet(nn.Module):
@@ -35,13 +35,32 @@ class ResNet(nn.Module):
 
 
 if __name__ == "__main__":
-    args = parse_args(2)
-    np.random.seed(args.seed)
-    torch.manual_seed(args.seed)
-    random.seed(args.seed)
-    torch.set_num_threads(8)
-    torch.backends.cudnn.benchmark = False
+    np.random.seed(0)
+    torch.manual_seed(0)
+    random.seed(0)
 
+    ##################################################################
+    # TODO: Create hyperparameter argument class
+    # Note that you might have to change the augmentations
+    # You should experiment and choose the correct hyperparameters
+    # Aim for an mAP of around 0.8 (80%) in 50 epochs.
+    ##################################################################
+    args = ARGS(
+        epochs=50,
+        inp_size=224,
+        use_cuda=torch.cuda.is_available(),
+        val_every=70,
+        log_every=100,
+        lr=float(os.environ.get('VLR_LR', '0.0001')),
+        batch_size=64,
+        step_size=15,
+        gamma=0.3,
+        save_at_end=True,
+    )
+    ##################################################################
+    #                          END OF YOUR CODE                      #
+    ##################################################################
+    
     print(args)
 
     ##################################################################
@@ -60,7 +79,7 @@ if __name__ == "__main__":
     optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
     scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=args.step_size, gamma=args.gamma)
     # trains model using your training code and reports test map
-    test_ap, test_map = trainer.train(args, model, optimizer, scheduler, model_name=args.run_name)
+    test_ap, test_map = trainer.train(args, model, optimizer, scheduler, model_name=os.environ.get('VLR_RUN_NAME', 'q2'))
     print('test map:', test_map)
 
     # Q2 t-SNE plot guidance:

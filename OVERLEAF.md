@@ -1,37 +1,15 @@
-# Connect this repository to Overleaf
+# Overleaf synchronization
 
-GitHub synchronization is available on your Overleaf subscription. The connection must be authorized in your account; no Overleaf account connector is available in this workspace.
+The report uses the original template and packages. Its top-level entry point is `main.tex`, which loads `report/main.tex`.
 
-Before importing, publish the completed local files to GitHub. Review the changes, then run:
+1. Open [Overleaf](https://www.overleaf.com/project) and choose **New Project → Import from GitHub**.
+2. Connect your GitHub account if prompted and import `diogoparaujo99/hw1-recognition`.
+3. Set the main document to **main.tex** and use **pdfLaTeX**, then recompile.
+4. For an already linked project, use its **GitHub** synchronization option to pull the latest changes from the repository.
+5. Complete the unchanged collaboration survey before the final submission.
 
-```bash
-cd /home/daraujo/courses/vlr/hw1-recognition
-git diff --stat
-git add .
-git commit -m "Complete VLR homework implementations and report"
-git push origin main
-```
+For future local edits, pull any Overleaf/GitHub changes first, then commit and push your edits. Pull those changes through the project's GitHub synchronization option in Overleaf; synchronization is explicit rather than automatic.
 
-This initial push is needed because cloning and editing locally do not change the GitHub repository.
+The dataset, checkpoints, logs, and third-party tools live outside the repository and are not imported into Overleaf. No Overleaf account connector is available in this workspace, so account authorization and compilation there require these manual steps.
 
-1. Open [Overleaf projects](https://www.overleaf.com/project).
-2. Choose **New Project → Import from GitHub**. If prompted, connect the GitHub account that owns `diogoparaujo99/hw1-recognition` and authorize access to that repository.
-3. Select `hw1-recognition` and import it as a new project.
-4. Set the main document to the top-level **main.tex** and use the **pdfLaTeX** compiler. It loads the supplied template from `report/`; no extra LaTeX packages were added.
-5. Click **Recompile** and check the complete report. Complete the collaboration survey in `report/main.tex` before final submission.
-6. For future local edits, commit and push to the linked GitHub branch, then open **GitHub** under the Overleaf project's synchronization options and pull the changes. Synchronization is explicit, not automatic. Before editing locally again, push any Overleaf edits to GitHub and pull them locally.
-
-```bash
-cd /home/daraujo/courses/vlr/hw1-recognition
-git pull --ff-only
-# Edit report/main.tex or regenerate report/figures/ locally.
-git add report main.tex
-git commit -m "Update homework report"
-git push
-```
-
-The repository contains source and report assets only. Datasets, model checkpoints, and TensorBoard logs are outside it and will not be imported into Overleaf.
-
-If import access is unavailable, upload a ZIP of the LaTeX sources and figures as a new project. That is a manual workflow and does not establish Git synchronization.
-
-Official instructions: [GitHub synchronization](https://docs.overleaf.com/integrations-and-add-ons/git-integration-and-github-synchronization/github-synchronization).
+Official guide: [GitHub synchronization](https://docs.overleaf.com/integrations-and-add-ons/git-integration-and-github-synchronization/github-synchronization).

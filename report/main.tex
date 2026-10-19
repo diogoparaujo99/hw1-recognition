@@ -331,45 +331,53 @@ In this question, we will try to recognize objects in natural images from the PA
         \item Describe the hyperparameters you experimented with and the effects they had on the train and test metrics.
 
         \begin{solution}
-For each image, I read its XML objects and set the corresponding entries of a
-20-dimensional label vector to one. Following the starter, an image/class pair
-has zero weight if any object of that class is marked difficult. This excludes
-ambiguous labels from the loss. Since an image can contain several classes, I
-use independent binary predictions. The stable manual loss for a logit $z$ and
-label $y$ is $\max(z,0)-zy+\log(1+e^{-|z|})$, averaged over nonzero weights.
-This implements binary cross-entropy without a built-in loss function.
+I read each image's XML annotations into a 20-class binary label vector.
+Following the starter, a class receives zero weight if any instance of that
+class is marked difficult. Q1 uses PyTorch's
+\texttt{BCEWithLogitsLoss(reduction="none")} directly on raw logits, with no
+sigmoid beforehand. It computes numerically stable binary cross-entropy for
+each image/class pair. I retain the masked average
+\[
+L=\frac{\sum_{i,c}w_{ic}\ell(z_{ic},y_{ic})}
+        {\max(1,\sum_{i,c}w_{ic})}.
+\]
+The mask excludes difficult labels from both the loss and its gradients.
+The built-in and manual expressions agree on representative inputs, including
+extreme logits and masked labels; their gradients are finite. Q2 retains its
+manual loss.
 
-The required $64\times64$ input passes through two size-preserving convolutions
-and two pooling layers. The final feature shape is $64\times16\times16$, so the
-flattened dimension is 16,384. I retained the supplied architecture and Adam
-optimizer. All four runs use batch size 64, seed 0, and five epochs; StepLR
-halves the learning rate after epoch three. The comparison tests two learning
-rates rather than assuming one is best. Augmentation applies a horizontal flip
-with probability 0.5 and a 64-pixel crop after four-pixel reflection padding.
-These are mild changes; larger crops could remove a labeled object. Test
-preprocessing is deterministic, with ImageNet normalization.
+The supplied CNN maps $64\times64$ inputs to $64\times16\times16$ features,
+so the flattened dimension is 16,384. All four runs use Adam, five epochs,
+batch size 64, and seed 0. StepLR halves the rate after epoch three.
+Augmentation uses horizontal flips and a 64-pixel crop after four-pixel
+reflection padding. Evaluation preprocessing and the protected metric
+functions are unchanged.
 
 \begin{center}
 \begin{tabular}{llll}
-Initial LR & Augmentation & Final train loss & Final test mAP \\
+Initial LR & Augmentation & Last logged loss & Final test mAP \\
 \hline
-0.001 & No & 0.1525 & 0.2554 \\
-0.001 & Yes & 0.1728 & 0.2674 \\
-0.0003 & No & 0.1625 & 0.2424 \\
-0.0003 & Yes & 0.1774 & 0.2487 \\
+0.001 & No & 0.1524 & 0.2545 \\
+0.001 & Yes & 0.1729 & 0.2610 \\
+0.0003 & No & 0.1654 & 0.2436 \\
+0.0003 & Yes & 0.1818 & 0.2483 \\
 \end{tabular}
 \end{center}
 
-At learning rate 0.001, augmentation raises final test mAP from 0.2554 to
-0.2674, while increasing training loss from 0.1525 to 0.1728. The transformed
-examples are harder to fit, but the test score improves. Reducing the initial
-rate to 0.0003 gives lower test mAP within this five-epoch budget. I select the
-augmented 0.001 run, which exceeds the approximate 0.22 target.
+At initial rate 0.001, augmentation improves final mAP by 0.0066;
+at 0.0003, it improves mAP by 0.0046. Augmented examples have
+higher last logged training loss but better test scores. The lower rate
+learns more slowly within this five-epoch budget and gives lower final mAP.
+I select the augmented 0.001 run by final test mAP: 0.2610, above the
+approximate 0.22 target. Its last logged minibatch loss is 0.1729
+at step 390, and its final learning rate is 0.0005. These losses are
+individual logged minibatches, not epoch averages. Both comparison figures
+use initial rate 0.001; the other three figures show the selected run.
 
-All classification scores use the supplied, unchanged evaluator with test
-batches of 1,000. It averages batch-wise AP values; these are the assignment's
-reported scores, rather than AP computed over one global ranking. These
-single-seed comparisons do not establish that the differences hold across seeds.
+The supplied evaluator averages AP over test batches of 1,000. I use that
+procedure for every run. These single-seed test-set comparisons describe the
+assignment experiments; they do not establish that the differences hold
+across seeds.
 \end{solution}
     \end{itemize}
 \end{itemize}
@@ -414,26 +422,22 @@ Hopefully, we get much better accuracy with the deeper models! Since 2012, much 
         \item How does the test mAP and training loss change over time? Why do you think this is happening?
 
         \begin{solution}
-Training loss decreases from 0.2928 at epoch one to
-0.0023 at epoch 50. Test mAP rises quickly from 0.7689
-to 0.8077 at epoch two, then changes much less. The final score is
-0.8348; the highest observed score is 0.8365 at epoch
-6. Thus the model reaches the approximate 0.80 target within
-50 epochs.
+Training loss falls from 0.7541 at the first logged minibatch to 0.0022 at
+step 3,900. Test mAP rises from 0.0997 after the first update to 0.7603 at
+step 70 and 0.8037 at step 140. The final score after 50 epochs is 0.8331;
+the highest logged score is 0.8340 at step 350, during epoch five.
 
-The ImageNet features already transfer well, so the first epochs provide most
-of the improvement. Later, training loss keeps falling while test mAP largely
-plateaus, consistent with increasing fit to the training set without comparable
-generalization gains. Learning-rate drops make smaller updates; they do not
-remove this gap.
+The ImageNet features transfer well, so the early updates provide most of the
+improvement. Later, training loss keeps falling while test mAP largely
+plateaus. The model fits the training data more closely without comparable
+test gains. Learning-rate drops reduce update sizes but do not remove this gap.
 
-I complete the ResNet module in \texttt{train\_q2.py} using torchvision's
-ImageNet ResNet-18, replace only its last layer with a new 512-to-20 linear
-layer, and fine-tune all layers. Inputs are $224\times224$, as the starter
-requires for Q2 onward. Adam starts at $10^{-4}$, a conservative rate for
-pretrained weights, with batch size 64 and a factor-0.3 decay every 15 epochs.
-Checkpoint selection uses the reported test curve, following the assignment;
-it is not an independent held-out estimate.
+I use torchvision's pretrained ResNet-18, replace its classifier with a new
+512-to-20 linear layer, and fine-tune all layers on $224\times224$ images.
+Adam starts at $10^{-4}$ with batch size 64 and seed 0. StepLR multiplies the
+rate by 0.3 every 15 epochs. The final 50-epoch checkpoint supplies the t-SNE
+features. The assignment uses the test curve for comparison, so these scores
+do not provide an independent held-out estimate of model selection.
 \end{solution}
         
         \begin{figure}[H]
@@ -455,21 +459,19 @@ it is not an independent held-out estimate.
         \item Compare the two histogram plots. How do they change over time? Why do you think this is happening?
 
         \begin{solution}
-Each plot shows TensorBoard gradient histograms rebinned to common widths at the beginning,
-middle, and end of training. The standard deviation for
-\texttt{layer1.1.conv1.weight} changes from 0.000159 to
-2.63e-05; for \texttt{layer4.0.bn2.bias} it changes from
-0.000568 to 4.17e-05. The later distributions are more
-concentrated near zero as training loss becomes small. Individual updates still
-vary with the examples in the minibatch.
+These are TensorBoard's own histogram displays for the two requested parameters.
+Both gradient distributions become narrower around zero over training, with
+variation between minibatches. For \texttt{layer1.1.conv1.weight}, the gradient
+standard deviation falls from $1.59\times10^{-4}$ at step 0 to
+$2.57\times10^{-5}$ at step 3,900. For \texttt{layer4.0.bn2.bias}, it falls
+from $5.69\times10^{-4}$ to $3.77\times10^{-5}$.
 
-The parameters serve different roles: the convolution weights adjust earlier
-spatial features, while the later batch-normalization biases shift feature
-channels near the classifier. Their gradient scales and distribution shapes
-therefore need not match. The histograms describe different parameters and
-minibatches; a smaller gradient alone does not show that a layer learns better.
-The learning-rate schedule changes update sizes directly, rather than directly
-multiplying the gradients plotted here.
+Smaller gradients are consistent with the falling training loss. The
+convolution adjusts spatial features, while the later batch-normalization
+bias shifts feature channels near the classifier. Their gradient scales and
+shapes therefore differ; a smaller gradient alone does not imply better
+learning. The scheduler directly scales parameter updates, rather than the
+gradients shown here.
 \end{solution}
         
         \item We can also visualize how the feature representations specialize for different classes. Take 1000 random images from the test set of PASCAL, and extract ImageNet (finetuned) features from those images. Compute a 2D t-SNE (use \href{https://scikit-learn.org/stable/modules/generated/sklearn.manifold.TSNE.html}{sklearn}) projection of the features, and plot them with each feature color-coded by the GT class of the corresponding image. If multiple objects are active in that image, compute the color as the ``mean” color of the different classes active in that image. Add a legend explaining the mapping from color to object class. 
@@ -485,23 +487,20 @@ multiplying the gradients plotted here.
         \item Briefly describe what you observe in the t-SNE plot. Does this match your expectations?
 
         \begin{solution}
-I use 1,000 distinct test images sampled with seed 0 and the fine-tuned
-checkpoint from epoch 6. Features are the 512 values
-after global average pooling and before the final classifier. The sklearn
-projection uses perplexity 30, PCA initialization, automatic learning rate,
-1,500 iterations, and random state 0. Each class has a fixed RGB color; a
-multi-label image receives the arithmetic mean of its active class colors.
-The legend lists the 20 base classes, not label combinations.
+I sample 1,000 distinct test images with seed 0 and extract the 512 features
+after global average pooling from the final, 50-epoch checkpoint. The sklearn
+t-SNE uses perplexity 30, PCA initialization, automatic learning rate,
+1,500 iterations, and random state 0. Each image receives the arithmetic mean
+of the fixed RGB colors for its active ground-truth classes. The legend lists
+all 20 classes.
 
-Aeroplanes, birds, cats, and trains form visible groups. Car images are also
-concentrated, while the center-right region contains more mixed colors and
-less separated groups. This matches my expectation of partial class structure:
-the fine-tuned classifier needs useful class features, but multi-object scenes
-share objects and backgrounds, so their representations need not form separate
-single-class clusters. Blended colors also make some label combinations look
-similar. The projection describes local feature neighborhoods; distances between
-separate groups and their areas should not be read as measures of classification
-accuracy.
+Aeroplanes, birds, cats, cars, and trains form visible groups. The large
+center-right region mixes person-colored points with other colors. This
+matches my expectation of partial class structure: class features separate
+some objects, while multi-object scenes share objects and backgrounds.
+Blended colors also make some label combinations look similar. t-SNE shows
+local neighborhoods; group areas and distances between separated groups are
+not measures of classification accuracy.
 \end{solution}
         
     \end{itemize}
@@ -564,33 +563,35 @@ In this problem, we'll be implementing supervised {\href{https://arxiv.org/abs/1
         \begin{figure}[H]
             \centering
             \includegraphics[width=0.95\linewidth,height=0.64\textheight,keepaspectratio]{report/figures/q3_inference.png}
-            \caption{TensorBoard inference visualization. First four of ten fixed validation examples; red boxes show ground truth and green boxes show predictions.}
+            \caption{TensorBoard inference visualization. First two of ten fixed validation examples; red boxes show ground truth and green boxes show predictions.}
             \label{fig:inference_results}
         \end{figure}
 
         \item What can you conclude from the above visualizations? When does the model succeed or fail? How can you improve the results for the failure cases?
 
         \begin{solution}
-FCOS reaches 36.90\% mAP on all 2,510 validation images, using
-confidence 0.4, NMS at IoU 0.6, and evaluation IoU 0.5. The supplied center crop
-is preserved; images without predictions still count.
+FCOS reaches 37.34\% mAP on all 2,510 validation images, exceeding the 20\%
+target. Inference uses confidence 0.4 and NMS IoU 0.6; Cartucho evaluates at
+IoU 0.5. I preserve the supplied center crop and count images with no
+predictions. Figure 3.3 is the original evaluator's generated mAP plot.
 
-The 250-iteration, 160-image sanity run falls from a peak of
-5.703 to
-2.212 over its final 20 iterations,
-after the EMA-normalizer transient. This supports improved fit, not zero training
-error. Full training uses 9,000 iterations.
+The 250-iteration sanity run uses 160 training images. Total loss peaks at
+5.703 and averages 2.206 over the final 20 iterations. This shows improved
+fit after the EMA-normalizer transient, but does not demonstrate complete
+memorization. Full training uses the prescribed 9,000 iterations; its final
+20-iteration mean loss is 0.820. I retain the pretrained RegNet backbone and
+three-level FPN from the scaffold.
 
-I follow the scaffold's pretrained RegNet and three-level FPN, which combines
-coarse semantic and finer spatial features for objects of different sizes.
-
-The train and cat are detected with reasonably aligned boxes. The cluttered
-chairs are missed; the small bicycle is localized but labeled as a dog.
-Localization and classification can fail separately. Larger inputs could
-preserve small-object detail; more varied clutter examples or a stronger
-backbone could help occluded objects. Lowering the score threshold may improve
-recall, but adds false positives and cannot fix the bicycle's wrong label.
-These examples show failure modes, not their frequency.
+The TensorBoard screenshot shows the first two images of the supplied
+10-image grid. The train is correctly classified with a roughly aligned box.
+Several chairs are detected in the cluttered room, but overlapping boxes and
+imprecise boundaries remain. Across the validation set, train AP is 66.07\%
+and cat AP is 64.32\%, while bottle AP is 5.26\% and potted-plant AP is
+7.75\%. Larger inputs could preserve detail for small objects; more varied
+clutter examples could help occluded objects. Threshold and NMS tuning could
+reduce redundant chair boxes, but may also remove nearby true objects. These
+two images illustrate localization errors; they do not establish their
+frequency.
 \end{solution}
 
     \end{itemize}

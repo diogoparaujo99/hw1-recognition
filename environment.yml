@@ -1,0 +1,14 @@
+name: cmu16824hw1
+channels:
+  - defaults
+dependencies:
+  - python=3.10
+  - pip
+  - pip:
+      - -r requirements.txt
+      - -c constraints.txt
+variables:
+  PYTHONNOUSERSITE: "1"
+  MPLBACKEND: Agg
+  OMP_NUM_THREADS: "8"
+  MKL_NUM_THREADS: "8"

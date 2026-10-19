@@ -6,8 +6,6 @@ import json
 import os
 import shutil
 import time
-from pathlib import Path
-import json
 
 import matplotlib.pyplot as plt
 import torch
@@ -37,7 +35,7 @@ class VOC2007DetectionTiny(torch.utils.data.Dataset):
             download: Whether to download PASCAL VOC 2007 to `dataset_dir`.
             image_size: Size of imges in the batch. The shorter edge of images
                 will be resized to this size, followed by a center crop. For
-                validation, the supplied center crop is preserved as well.
+                val, center crop will not be taken to capture all detections.
         """
         super().__init__()
         self.image_size = image_size
@@ -192,10 +190,8 @@ def train_detector(
     """
     Train the detector. We use SGD with momentum and step decay.
     """
-    run_name = 'fcos_overfit' if overfit else 'fcos_full'
-    run_dir = Path(os.environ.get('VLR_LOG_ROOT', '../../runs')) / run_name
-    run_dir.mkdir(parents=True, exist_ok=True)
-    writer = SummaryWriter(str(run_dir))
+    writer = SummaryWriter(os.path.join(os.environ.get('VLR_LOG_ROOT', '../../runs'),
+        'fcos_overfit' if overfit else 'fcos_full'))
     detector.to(device=device)
 
     # Optimizer: use SGD with momentum.
@@ -206,7 +202,7 @@ def train_detector(
         lr=learning_rate,
         weight_decay=weight_decay,
     )
-    # LR scheduler: use step decay at 60% and 90% of training iters.
+    # LR scheduler: use step decay at 70% and 90% of training iters.
     lr_scheduler = optim.lr_scheduler.MultiStepLR(
         optimizer, milestones=[int(0.6 * max_iters), int(0.9 * max_iters)]
     )
@@ -237,24 +233,20 @@ def train_detector(
         lr_scheduler.step()
         for key, value in losses.items():
             writer.add_scalar("train/" + key + "_{}".format("overfit" if overfit else "full"), value, _iter)
-        writer.add_scalar('train/total_loss', total_loss.item(), _iter)
-        writer.add_scalar('learning_rate', optimizer.param_groups[0]['lr'], _iter)
-        loss_history.append(dict(iteration=_iter, total=total_loss.item(),
-                                 **{k: v.item() for k, v in losses.items()}))
         # Print losses periodically.
         if _iter % log_period == 0:
             loss_str = f"[Iter {_iter}][loss: {total_loss:.3f}]"
             for key, value in losses.items():
                 loss_str += f"[{key}: {value:.3f}]"
-            print(loss_str, flush=True)
-            (run_dir / 'history.json').write_text(json.dumps(loss_history))
+            print(loss_str)
+            loss_history.append(total_loss.item())
             
     writer.close()
-    (run_dir / 'history.json').write_text(json.dumps(loss_history))
     print("Finished training, saving model.")
-    checkpoint_dir = Path(os.environ.get('VLR_CHECKPOINT_ROOT', '../../checkpoints'))
-    checkpoint_dir.mkdir(parents=True, exist_ok=True)
-    torch.save(detector.state_dict(), checkpoint_dir / (run_name + '.pt'))
+    checkpoint_dir = os.environ.get('VLR_CHECKPOINT_ROOT', '../../checkpoints')
+    os.makedirs(checkpoint_dir, exist_ok=True)
+    filename = 'fcos_overfit.pt' if overfit else 'fcos_detector.pt'
+    torch.save(detector.state_dict(), os.path.join(checkpoint_dir, filename))
 
 def inference_with_detector(
     detector,
@@ -287,8 +279,8 @@ def inference_with_detector(
     )
 
     if output_dir is not None:
-        det_dir = os.path.join(output_dir, 'detection-results')
-        gt_dir = os.path.join(output_dir, 'ground-truth')
+        det_dir = os.path.join(output_dir, "detection-results")
+        gt_dir = os.path.join(output_dir, "ground-truth")
         if os.path.exists(det_dir):
             shutil.rmtree(det_dir)
         os.makedirs(det_dir, exist_ok=True)
@@ -353,10 +345,8 @@ def inference_with_detector(
             all_images.append(torch.from_numpy(image))
     
     if output_dir is None:
-        writer=SummaryWriter(str(Path(os.environ.get('VLR_LOG_ROOT', '../../runs')) / 'fcos_inference'))
-        image_grid = make_grid(all_images[:4], nrow=2)
-        for index, example in enumerate(all_images):
-            writer.add_image(f'examples/{index:02d}', example)
+        writer=SummaryWriter(os.path.join(os.environ.get('VLR_LOG_ROOT', '../../runs'), 'fcos_inference'))
+        image_grid = make_grid(all_images, nrow=8)
         writer.add_image("test_images", image_grid)
         writer.close()
     end_t = time.time()
