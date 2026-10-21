@@ -331,19 +331,16 @@ In this question, we will try to recognize objects in natural images from the PA
         \item Describe the hyperparameters you experimented with and the effects they had on the train and test metrics.
 
         \begin{solution}
-We tested learning rates of 0.001 and 0.0003, each with and without data
-augmentation. All four runs used Adam, batch size 64, seed 0, and five epochs.
-StepLR halved the learning rate after epoch three. Augmentation used random
-horizontal flips and crops with four-pixel reflection padding.
+I tested learning rates of 0.001 and 0.0003, each with and without data augmentation. All four runs used Adam, batch size 64, seed 0, and five epochs. StepLR halved the learning rate after epoch three. Augmentation used random horizontal flips and crops with four-pixel reflection padding.
 
-A smaller learning rate takes smaller steps and may need more epochs to
-converge. At 0.0003, both runs finished with higher logged training loss and
-lower test mAP than at 0.001. This is consistent with slower learning within
-the same training budget. Test mAP was still improving near epoch five for
-both rates, so these curves do not establish convergence. Both rates exceeded
-the approximate 0.22 target. A rate that is too high can overshoot and make
-training unstable, but we did not observe sustained instability at 0.001.
-We did not test a higher rate.
+A smaller learning rate makes smaller updates and may need more epochs to converge. At 0.0003, both runs finished with higher logged training loss and lower test mAP than at 0.001. This is consistent with slower learning at 0.0003 within the five-epoch budget.
+
+At both learning rates, test mAP was still improving near epoch five. Training for more epochs might therefore improve test mAP, although longer training could also lead to overfitting.
+
+I could also have tested higher learning rates. A learning rate that is too high can overshoot and make training unstable. However, I did not observe sustained instability at 0.001, and I did not test a higher learning rate.”
+
+Augmentation increased the last logged training loss but improved final test mAP at both learning rates. My conclusion is that the transformed images were harder to fit during the training, but lead to better generalization. Our best run used 0.001 with augmentation: final mAP was 0.2610, the last logged minibatch loss was 0.1729, and the final learning rate was 0.0005. The losses in the table are individual logged minibatches, not epoch averages. The augmentation comparison plots use
+the same initial learning rate, 0.001.
 
 \begin{center}
 \begin{tabular}{llll}
@@ -356,13 +353,6 @@ Initial LR & Augmentation & Last logged loss & Final test mAP \\
 \end{tabular}
 \end{center}
 
-Augmentation increased the last logged training loss but improved final test
-mAP at both learning rates. The transformed images were harder to fit, while
-the test results suggest better generalization. Our best run used 0.001 with
-augmentation: final mAP was 0.2610, the last logged minibatch loss was 0.1729,
-and the final learning rate was 0.0005. The losses in the table are individual
-logged minibatches, not epoch averages. The augmentation comparison plots use
-the same initial learning rate, 0.001.
 \end{solution}
     \end{itemize}
 \end{itemize}
