@@ -339,7 +339,7 @@ horizontal flips and crops with four-pixel reflection padding.
 The table shows that 0.0003 gave a higher last logged training loss and lower
 final test mAP than 0.001, both with and without augmentation. This is
 consistent with the smaller learning rate making slower progress within five
-epochs. These results do not establish convergence.
+epochs.
 
 Figures~\ref{fig:q1_1_compare_loss} and~\ref{fig:q1_1_compare_map} compare
 augmentation at the same initial learning rate, 0.001. With augmentation,
@@ -348,12 +348,11 @@ the training loss was generally higher, but final test mAP improved from
 suggests that the transformed images were harder to fit but helped the model
 generalize to the test images.
 
-I selected 0.001 with augmentation because it gave the highest final test
-mAP, 0.2610. Figures~\ref{fig:q1_2_loss}--\ref{fig:q1_2_lr} show this run.
+In Figures~\ref{fig:q1_2_loss}--\ref{fig:q1_2_lr} I selected 0.001 with augmentation because it gave the highest final test
+mAP, 0.2610. 
 Its last logged training loss was 0.1729 and its final learning rate was
 0.0005. Test mAP was still increasing at epoch five, so more training might
-help, although the current curves cannot show whether it would cause
-overfitting. The losses below are logged minibatch values, not epoch averages.
+help, although it seems that the training loss had already converged at around 0.2, so it is hard to make some definitive conclusions.
 
 \begin{center}
 \begin{tabular}{llll}
@@ -420,13 +419,9 @@ training loss did not produce a clear improvement in test mAP. The model
 continued to fit the training data more closely without a comparable gain
 on the test images.
 
-The rapid early improvement is consistent with the ImageNet-pretrained
-features already being useful for recognizing these objects. ResNet reached
+ResNet reached
 a much higher test mAP within five epochs than the simple CNN, which reached
-0.2610 in Figure~\ref{fig:q1_2_map}. The extra 45 epochs therefore do not
-explain this early gap. The deeper architecture may also help, but the
-experiments differ in pretraining and image resolution, so this comparison
-does not isolate the effect of network depth.
+0.2610 in Figure~\ref{fig:q1_2_map}. Both networks differ in depth, architecture, pretraining and image resolution, so it is not fair to compare both, but I would say that the rapid convergence of the ResNet is mainly due to the fact that we are using a pretraining architecture. In less than 5 epochs we already achieve a loss lower than $10^{-1}$ order of magnitude, which is much better than what we observed for the simple CNN.
 \end{solution}
         
         \begin{figure}[H]
