@@ -128,6 +128,8 @@ Both loss figures use epochs. The original full run has 157 updates per epoch (2
 
 ## Report and submission
 
+The report's 11 Q1/Q2 figures are in `q1_q2_classification/figures/`, and its four Q3 figures are in `detection/figures/`. The LaTeX source and plotting scripts use these paths.
+
 ```shell
 python scripts/tsne_features.py
 python scripts/make_figures.py
@@ -153,7 +155,7 @@ python scripts/capture_tensorboard.py --question q2 --url http://127.0.0.1:6007
 python scripts/capture_tensorboard.py --question q3
 ```
 
-The Q2 command saves the native stacked display under `../runs/q2_epoch_revision/native_histograms/` for reference. The Q3 command takes the first six renderings from the starter's ten-image inference grid and arranges them in two columns. It saves this display under `../runs/starter_revision/fcos_inference_six/` and captures the TensorBoard image card. The original renderings, predictions, and ten-image log stay unchanged.
+The Q2 command saves the native stacked display under `q1_q2_classification/figures/native_histograms/` for reference. The Q3 command takes the first six renderings from the starter's ten-image inference grid and arranges them in two columns. It saves this display under `../runs/starter_revision/fcos_inference_six/` and captures the TensorBoard image card in `detection/figures/`. The original renderings, predictions, and ten-image log stay unchanged.
 
 To take your own screenshot, open `http://localhost:6006/#images`, select only `fcos_inference_six`, and filter the tag to `test_images`. Enable **Show actual image size**. If VS Code is connected through Remote SSH, open the **Ports** view, forward port **6006**, and open its forwarded address in your browser.
 

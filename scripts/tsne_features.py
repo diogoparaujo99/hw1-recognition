@@ -51,7 +51,7 @@ def main():
               for color,name in zip(base_colors,dataset.CLASS_NAMES)]
     ax.legend(handles=legend,bbox_to_anchor=(1.01,1),loc='upper left',frameon=False,fontsize=10)
     fig.tight_layout()
-    fig.savefig(ROOT/'report/figures/q2_tsne.png',dpi=180)
+    fig.savefig(ROOT/'q1_q2_classification/figures/q2_tsne.png',dpi=180)
     plt.close(fig)
     output = course/'runs/q2_epoch_revision/q2_epoch_rerun'
     np.savez_compressed(output/'tsne.npz',indices=indices,features=features,labels=labels,

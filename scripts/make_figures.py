@@ -9,7 +9,8 @@ from tensorboard.backend.event_processing.event_accumulator import EventAccumula
 
 ROOT = Path(__file__).resolve().parents[1]
 RUNS = ROOT.parent / 'runs' / 'starter_revision'
-FIGURES = ROOT / 'report' / 'figures'
+FIGURES = ROOT / 'q1_q2_classification' / 'figures'
+DETECTION_FIGURES = ROOT / 'detection' / 'figures'
 
 
 def scalars(run, tag):
@@ -183,7 +184,7 @@ def q3_loss_curves(overfit_run='fcos_160_val64_epoch400_seed0', overfit_output=N
             axes[0].legend()
             axes[1].set(xlim=(0, zoom_end), title=f'Early run (epochs 0–{zoom_end})')
             fig.tight_layout()
-            fig.savefig(overfit_output or FIGURES / 'q3_overfit.png', dpi=180)
+            fig.savefig(overfit_output or DETECTION_FIGURES / 'q3_overfit.png', dpi=180)
             plt.close(fig)
             continue
         components = [scalars('fcos_' + mode, 'train/loss_' + kind + '_' + mode)
@@ -198,12 +199,13 @@ def q3_loss_curves(overfit_run='fcos_160_val64_epoch400_seed0', overfit_output=N
         ax.plot(epochs, [sum(v.value for v in row) for row in zip(*components)], linewidth=.7)
         ax.set(xlabel='Epoch', ylabel='Total training loss', xlim=(0, epochs[-1]))
         fig.tight_layout()
-        fig.savefig(FIGURES / f'q3_{mode}.png', dpi=180)
+        fig.savefig(DETECTION_FIGURES / f'q3_{mode}.png', dpi=180)
         plt.close(fig)
 
 
 def main():
     FIGURES.mkdir(exist_ok=True)
+    DETECTION_FIGURES.mkdir(exist_ok=True)
     names = ['q1_bce_lr001_noaug', 'q1_bce_lr001_aug',
              'q1_bce_lr0003_noaug', 'q1_bce_lr0003_aug']
     best = max(names, key=lambda name: scalars(name, 'map')[-1].value)
@@ -219,7 +221,7 @@ def main():
     q2_histograms()
     q3_loss_curves()
     # This image is produced by the unmodified evaluator's draw_plot_func.
-    shutil.copy2(ROOT.parent / 'tools/mAP/output/mAP.png', FIGURES / 'q3_map.png')
+    shutil.copy2(ROOT.parent / 'tools/mAP/output/mAP.png', DETECTION_FIGURES / 'q3_map.png')
     print('Selected Q1:', best)
 
 

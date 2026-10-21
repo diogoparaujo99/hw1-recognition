@@ -27,7 +27,8 @@ def main():
     parser.add_argument('--url', default='http://127.0.0.1:6006')
     parser.add_argument('--question', choices=['q2', 'q3'], required=True)
     args = parser.parse_args()
-    figures = ROOT / 'report/figures'
+    folder = 'q1_q2_classification' if args.question == 'q2' else 'detection'
+    figures = ROOT / folder / 'figures'
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=True, args=['--no-sandbox'])
         if args.question == 'q2':
@@ -36,7 +37,7 @@ def main():
                 page = open_dashboard(browser, args.url, 'histograms', 'q2_epoch_rerun', tag)
                 page.locator('paper-icon-button[icon="fullscreen"]').first.click()
                 page.wait_for_timeout(1000)
-                native = ROOT.parent / 'runs/q2_epoch_revision/native_histograms'
+                native = figures / 'native_histograms'
                 native.mkdir(exist_ok=True)
                 page.locator('tf-histogram-loader').first.screenshot(path=str(native / (name + '.png')))
                 page.close()

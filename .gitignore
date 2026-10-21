@@ -12,3 +12,4 @@ events.out.tfevents.*
 .DS_Store
 detection/mAP/
 data/VOCdevkit/
+hw1-recognition.zip
