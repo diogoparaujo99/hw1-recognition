@@ -1,7 +1,12 @@
 """Capture TensorBoard's own histogram and inference displays."""
 import argparse
+import io
 from pathlib import Path
+import numpy as np
+from PIL import Image
 from playwright.sync_api import sync_playwright
+from tensorboard.backend.event_processing.event_accumulator import EventAccumulator
+from torch.utils.tensorboard import SummaryWriter
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -36,13 +41,36 @@ def main():
                 page.locator('tf-histogram-loader').first.screenshot(path=str(native / (name + '.png')))
                 page.close()
         else:
-            page = open_dashboard(browser, args.url, 'images', 'fcos_inference', '^test_images$')
+            # Reuse the first six renderings from the starter's eight-column
+            # grid. Only their layout changes; boxes and predictions stay intact.
+            logs = ROOT.parent / 'runs/starter_revision'
+            events = EventAccumulator(str(logs / 'fcos_inference'),
+                                      size_guidance={'images': 0}).Reload()
+            source = events.Images('test_images')[-1]
+            original = Image.open(io.BytesIO(source.encoded_image_string)).convert('RGB')
+            # Original grid: eight columns, two rows, two-pixel padding.
+            width = (original.width - 18) // 8
+            height = (original.height - 6) // 2
+            assert original.size == (8 * width + 18, 2 * height + 6)
+            grid = Image.new('RGB', (2 * width + 6, 3 * height + 8))
+            for index in range(6):
+                left = 2 + index * (width + 2)
+                tile = original.crop((left, 2, left + width, 2 + height))
+                grid.paste(tile, (2 + index % 2 * (width + 2),
+                                 2 + index // 2 * (height + 2)))
+            with SummaryWriter(str(logs / 'fcos_inference_six')) as writer:
+                writer.add_image('test_images', np.asarray(grid), source.step, dataformats='HWC')
+            page = open_dashboard(browser, args.url, 'images', 'fcos_inference_six', '^test_images$')
+            page.set_viewport_size({'width': 1700, 'height': 1900})
             page.get_by_text('Show actual image size', exact=True).click()
             page.wait_for_timeout(1000)
-            # Keep the starter's complete ten-image grid unchanged. Capture the
-            # first two images at readable size in the TensorBoard viewport.
+            image = page.locator('img').first
+            image.scroll_into_view_if_needed()
+            bounds = image.bounding_box()
+            # Include the complete grid and TensorBoard's run/step header.
             page.screenshot(path=str(figures / 'q3_inference.png'),
-                            clip={'x': 350, 'y': 0, 'width': 1330, 'height': 700})
+                            clip={'x': bounds['x'] - 2, 'y': bounds['y'] - 36,
+                                  'width': bounds['width'] + 4, 'height': bounds['height'] + 38})
         browser.close()
 
 
