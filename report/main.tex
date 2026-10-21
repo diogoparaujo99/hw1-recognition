@@ -550,8 +550,10 @@ In this problem, we'll be implementing supervised {\href{https://arxiv.org/abs/1
         \item What can you conclude from the above visualizations? When does the model succeed or fail? How can you improve the results for the failure cases?
 
         \begin{solution}
-Figure~\ref{fig:overfit_plot} shows overfitting in the later epochs:
-training loss stays low while validation loss increases. This shows a better
+Figure~\ref{fig:overfit_plot} shows overfitting in the 400-epoch run, with
+training loss staying low while validation loss rises 15.9\% from its minimum;
+cross-validation could check whether this pattern also appears across different
+data splits. This shows a better
 fit to the small training subset, rather than complete memorization. In Figure~\ref{fig:full_loss_plot}, full-training loss decreased and finished
 around 0.8.
 
@@ -565,10 +567,10 @@ with predicted boxes roughly aligned with the ground truth. In the
 cluttered room, the chair predictions overlapped and did not closely match
 the marked boundaries. Both cases align with the results in Figure \ref{fig:final_mAP}. 
 
-Ultimately e examples in Figure~\ref{fig:inference_results} show that for the worst performing classes (shown in Figure \ref{fig:final_mAP}, e.g., chair, the model can recognize objects in the image, but makes localization and duplicate-detection errors.
+Ultimately, the examples in Figure~\ref{fig:inference_results} show that for a poorly performing class such as chair (Figure~\ref{fig:final_mAP}), the model can recognize objects in the image, but makes localization and duplicate-detection errors.
 
-As we can see from both Figures~\ref{fig:final_mAP} and~\ref{fig:inference_results}, the worst three performing classes are relatively small objects. Therefore I would test larger input images to preserve detail for small objects and
-I would had more training examples with clutter and occlusion for the model to learn better to identify object under those conditions. To reduce duplicate
+As we can see from Figure~\ref{fig:final_mAP}, the worst three performing classes are bottle, potted plant, and chair. Small objects and clutter may contribute to these errors. Therefore I would test larger input images to preserve detail for small objects and
+I would add more training examples with clutter and occlusion for the model to learn better to identify objects under those conditions. To reduce duplicate
 boxes, I would tune NMS while checking that nearby true objects are still
 detected.
 \end{solution}
