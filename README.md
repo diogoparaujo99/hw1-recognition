@@ -84,27 +84,29 @@ The few correctness fixes outside TODOs are moving the detector writer's close c
 
 ## Small-subset overfitting diagnostic
 
-Figure 3.1 uses a separate diagnostic; the original 250-update run and the full-training checkpoint remain under `../runs/starter_revision/` and `../checkpoints/starter_revision/`. The diagnostic keeps the starter's 160 evenly spaced training images, 224-pixel inputs, batch size 16, seed 0, and SGD (learning rate 0.005, momentum 0.9, weight decay 0.0001). It extends training to 400 epochs, or 4,000 updates, with the same scheduler rule: multiply the rate by 0.1 at 60% and 90% of the updates. A fixed 320-image subset of the separate validation split supplies the validation curve; its images never enter the optimizer.
+Figure 3.1 uses a separate diagnostic; the original 250-update run and the full-training checkpoint remain under `../runs/starter_revision/` and `../checkpoints/starter_revision/`. The diagnostic keeps the starter's 160 evenly spaced training images, 224-pixel inputs, batch size 16, seed 0, and SGD (learning rate 0.005, momentum 0.9, weight decay 0.0001). It extends training to 400 epochs, or 4,000 updates, with the same scheduler rule: multiply the rate by 0.1 at 60% and 90% of the updates.
+
+Exactly 64 fixed, evenly spaced images from the separate validation split supply every validation measurement; they never enter the optimizer. This is 40% of the training count, the largest size in the requested 20–40% range. It provides four complete batches and includes all 20 classes after the supplied crop. The indices were fixed before examining the measured losses; paths and class counts are recorded with the run.
 
 From `detection/`, run:
 
 ```shell
-CUDA_VISIBLE_DEVICES=1 python overfit_diagnostic.py --epochs 400 --run-name fcos_160_epoch400_seed0
+CUDA_VISIBLE_DEVICES=1 python overfit_diagnostic.py --epochs 400 --val-images 64 --run-name fcos_160_val64_epoch400_seed0
 ```
 
-Logs, settings, source hashes, losses, and AP results are saved under `../runs/q3_overfit_revision/fcos_160_epoch400_seed0/`; checkpoints go under `../checkpoints/q3_overfit_revision/fcos_160_epoch400_seed0/`. Use a different run name for another experiment. Training and validation losses are measured at epochs 0, 1, 2, and every five epochs, in evaluation mode without gradients or changes to batch statistics. Both use the same fixed normalizer, 150, so changes in the training EMA cannot create an apparent validation-loss trend. The optimizer still uses the original EMA-normalized loss. Each plotted point averages all images in its subset.
+Logs, settings, source hashes, losses, and AP results are saved under `../runs/q3_overfit_revision/fcos_160_val64_epoch400_seed0/`; checkpoints go under `../checkpoints/q3_overfit_revision/fcos_160_val64_epoch400_seed0/`. Use a different run name for another experiment. Training and validation losses are measured at epochs 0, 1, 2, and every five epochs, in evaluation mode without gradients or changes to batch statistics. Both use the same fixed normalizer, 150, so changes in the training EMA cannot create an apparent validation-loss trend. The optimizer still uses the original EMA-normalized loss. Each plotted point averages all images in its subset.
 
 The only changes to `FCOS.forward` allow evaluation with supplied ground-truth boxes to return losses and keep the EMA frozen during evaluation. Training and ordinary inference follow their existing paths. Runtime checks verify that each loss evaluation preserves the weights, buffers, and training normalizer.
 
 At epochs 25, 100, and 400, the supplied inference writer and an unchanged copy of Cartucho's evaluator measure AP on both subsets (confidence 0.4, NMS IoU 0.6, evaluation IoU 0.5). These are diagnostic subset scores, separate from the full-validation result in Figure 3.3. Centerness has soft targets, so fitting those targets exactly does not require a zero total loss.
 
-The lowest measured validation loss was 1.3099 at epoch 120. Training loss then fell from 0.6944 to 0.5499, while validation loss rose to 1.4844 at epoch 400. This shows loss-based overfitting after about epoch 120.
+The lowest measured validation loss was 1.2392 at epoch 55, with an almost equal value of 1.2395 at epoch 115. The early curve fluctuates, so epoch 55 is not a precise onset of overfitting. Later, training loss stays low while validation loss rises. At epoch 400, training loss is 0.5488 and validation loss is 1.4364, 15.9% above its minimum.
 
 | Epoch | Training-subset mAP | Validation-subset mAP |
 | --- | --- | --- |
-| 25 | 0.30% | 0.18% |
-| 100 | 29.42% | 1.66% |
-| 400 | 93.95% | 7.79% |
+| 25 | 0.09% | 0.00% |
+| 100 | 50.16% | 8.11% |
+| 400 | 92.49% | 9.99% |
 
 Both AP calculations include all 20 classes. The large final gap shows a strong fit to the small training subset with poor generalization; training detections are not perfect. Validation AP still improves across these checkpoints even though validation loss increases later, so the loss-based conclusion does not mean that every validation metric deteriorates.
 
@@ -113,6 +115,14 @@ To regenerate only the Q3 loss figures from the repository root:
 ```shell
 python -c 'from scripts.make_figures import q3_loss_curves; q3_loss_curves()'
 ```
+
+Views ending at epochs 150, 200, 300, and 400 are saved as `figure_3_1_epochs_*.png` in the run directory, alongside `epoch_comparison.json`. These show prefixes of the same 400-epoch run, with its scheduler unchanged. Validation loss rises 4.0%, 9.6%, 14.5%, and 15.9% above its minimum at those endpoints. Figure 3.1 uses the complete 400-epoch view, which shows the most sustained divergence, plus an early-training panel. No smoothing is applied. To reproduce a shorter view without changing the report figure:
+
+```shell
+python -c 'from scripts.make_figures import q3_loss_curves; q3_loss_curves(overfit_epochs=200, overfit_output="../runs/q3_overfit_revision/fcos_160_val64_epoch400_seed0/figure_3_1_epochs_200.png")'
+```
+
+The previous Figure 3.1, compiled PDF, and LaTeX source are preserved under `../runs/q3_overfit_revision/fcos_160_epoch400_seed0/saved_figure_3_1/`. That run used 320 validation images and had a 13.3% rise from its minimum validation loss. The new figure is a modestly clearer illustration with the requested 64 images; the different validation subsets do not establish an improvement in the model itself.
 
 Both loss figures use epochs. The original full run has 157 updates per epoch (2,501 images, batch size 16); Figure 3.2 keeps its original loss values.
 

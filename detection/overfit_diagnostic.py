@@ -67,7 +67,8 @@ def measure_map(model, dataset, directory, device):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--epochs', type=int, default=400)
-    parser.add_argument('--run-name', default='fcos_160_epoch400_seed0')
+    parser.add_argument('--val-images', type=int, default=64)
+    parser.add_argument('--run-name', default='fcos_160_val64_epoch400_seed0')
     args = parser.parse_args()
     torch.manual_seed(0)
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -77,7 +78,9 @@ def main():
     checkpoints.mkdir(parents=True, exist_ok=False)
 
     _, _, training, validation = create_dataset_and_dataloaders(subset=True)
-    val_indices = torch.linspace(0, len(validation) - 1, steps=320).long().tolist()
+    if not 0 < args.val_images <= len(validation):
+        raise ValueError('--val-images must fit within the validation dataset.')
+    val_indices = torch.linspace(0, len(validation) - 1, steps=args.val_images).long().tolist()
     held_out = Subset(validation, val_indices)
     train_paths = [training.dataset.instances[i][0] for i in training.indices]
     val_paths = [validation.instances[i][0] for i in val_indices]
@@ -97,6 +100,8 @@ def main():
     settings = dict(command=[sys.executable] + sys.argv, cwd=os.getcwd(),
                     seed=0, epochs=args.epochs, iterations=iterations,
                     train_images=len(training), validation_images=len(held_out),
+                    validation_to_training_ratio=len(held_out) / len(training),
+                    validation_sampling='evenly_spaced',
                     train_indices=[int(i) for i in training.indices],
                     validation_indices=val_indices, train_paths=train_paths,
                     validation_paths=val_paths, batch_size=16, input_size=224,

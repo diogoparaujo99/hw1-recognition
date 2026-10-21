@@ -152,30 +152,38 @@ def q2_histograms():
         plt.close(fig)
 
 
-def q3_loss_curves():
-    history_path = ROOT.parent / 'runs/q3_overfit_revision/fcos_160_epoch400_seed0/history.json'
+def q3_loss_curves(overfit_run='fcos_160_val64_epoch400_seed0', overfit_output=None,
+                   overfit_epochs=None):
+    run_path = ROOT.parent / 'runs/q3_overfit_revision' / overfit_run
+    history_path = run_path / 'history.json'
     for mode in ['overfit', 'full']:
         if mode == 'overfit' and history_path.exists():
             history = json.loads(history_path.read_text())
-            if history[-1]['epoch'] != 400:
+            settings = json.loads((run_path / 'settings.json').read_text())
+            if history[-1]['epoch'] != settings['epochs']:
                 raise RuntimeError('Finish the overfit diagnostic before updating the report.')
+            if overfit_epochs is not None:
+                history = [row for row in history if row['epoch'] <= overfit_epochs]
+                if not history or history[-1]['epoch'] != overfit_epochs:
+                    raise ValueError('The requested final epoch must have a recorded loss.')
             epochs = [row['epoch'] for row in history]
             best_epoch = min(history, key=lambda row: row['validation']['total'])['epoch']
-            zoom_end = min(epochs[-1], max(50, ((best_epoch + 49) // 25) * 25))
+            zoom_end = min(epochs[-1], max(150, ((best_epoch + 49) // 25) * 25))
             fig, axes = plt.subplots(2, 1, figsize=(7, 5.2))
             for ax in axes:
                 ax.plot(epochs, [row['train']['total'] for row in history],
-                        label='Training subset (160 images)')
+                        label=f"Training subset ({settings['train_images']} images)")
                 ax.plot(epochs, [row['validation']['total'] for row in history],
-                        label='Validation subset (320 images)', linestyle='--')
+                        label=f"Validation subset ({settings['validation_images']} images)", linestyle='--')
                 ax.axvline(best_epoch, color='0.45', linestyle=':',
                            label=f'Lowest validation loss (epoch {best_epoch})')
                 ax.set(xlabel='Epoch', ylabel='Total loss (fixed normalization)')
-            axes[0].set(xlim=(0, epochs[-1]), title='Full run')
+            title = 'Full run' if epochs[-1] == settings['epochs'] else f'Epochs 0–{epochs[-1]}'
+            axes[0].set(xlim=(0, epochs[-1]), title=title)
             axes[0].legend()
             axes[1].set(xlim=(0, zoom_end), title=f'Early run (epochs 0–{zoom_end})')
             fig.tight_layout()
-            fig.savefig(FIGURES / 'q3_overfit.png', dpi=180)
+            fig.savefig(overfit_output or FIGURES / 'q3_overfit.png', dpi=180)
             plt.close(fig)
             continue
         components = [scalars('fcos_' + mode, 'train/loss_' + kind + '_' + mode)

@@ -516,7 +516,7 @@ In this problem, we'll be implementing supervised {\href{https://arxiv.org/abs/1
         \begin{figure}[H]
             \centering
             \includegraphics[width=0.95\linewidth,height=0.62\textheight,keepaspectratio]{report/figures/q3_overfit.png}
-            \caption{Small-subset diagnostic: 160 training and 320 validation images over 400 epochs (4,000 updates). Both losses are measured in evaluation mode with the same fixed normalizer, 150. The lower panel shows early training, including the lowest logged validation loss.}
+            \caption{Small-subset diagnostic: 160 training and 64 validation images (40\% of the training count) over 400 epochs (4,000 updates). Both losses are measured in evaluation mode with the same fixed normalizer, 150. The lower panel shows early training, including the lowest logged validation loss.}
             \label{fig:overfit_plot}
         \end{figure}
         
@@ -550,8 +550,8 @@ In this problem, we'll be implementing supervised {\href{https://arxiv.org/abs/1
         \item What can you conclude from the above visualizations? When does the model succeed or fail? How can you improve the results for the failure cases?
 
         \begin{solution}
-Figure~\ref{fig:overfit_plot} shows overfitting after about epoch 120:
-training loss continued to fall while validation loss increased. This shows a better
+Figure~\ref{fig:overfit_plot} shows overfitting in the later epochs:
+training loss stays low while validation loss increases. This shows a better
 fit to the small training subset, rather than complete memorization. In Figure~\ref{fig:full_loss_plot}, full-training loss decreased and finished
 around 0.8.
 
