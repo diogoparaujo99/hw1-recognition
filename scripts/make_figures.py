@@ -22,7 +22,7 @@ def scalars(run, tag):
 def plot(runs, tag, filename, ylabel):
     zoom = filename == 'q2_map.png'
     if zoom:
-        fig, axes = plt.subplots(1, 2, figsize=(8, 3.2), gridspec_kw={'width_ratios': [1, 2]})
+        fig, axes = plt.subplots(2, 1, figsize=(7, 5.2))
         ax = axes[0]
     else:
         fig, ax = plt.subplots(figsize=(7, 3.2))
@@ -52,7 +52,7 @@ def plot(runs, tag, filename, ylabel):
             axes[1].plot(steps, [v.value for v in values], marker='.', markersize=3)
             late = [v.value for step, v in zip(steps, values) if step >= 5]
             margin = max((max(late) - min(late)) * .1, .0005)
-            axes[1].set(xlabel='Epoch', xlim=(5, 50),
+            axes[1].set(xlabel='Epoch', ylabel=ylabel, xlim=(5, 50),
                         ylim=(min(late) - margin, max(late) + margin), title='Epochs 5–50 (zoom)')
             ax.set_title('Full range')
     ax.set(xlabel='Epoch' if q1 or q2 else 'Training step', ylabel=ylabel)
