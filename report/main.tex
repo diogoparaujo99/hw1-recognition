@@ -443,22 +443,16 @@ a much higher test mAP within five epochs than the simple CNN, which reached
         \item Compare the two histogram plots. How do they change over time? Why do you think this is happening?
 
         \begin{solution}
-Figures~\ref{fig:q2_histogram_conv1} and~\ref{fig:q2_bn} show that both
-gradient histograms became narrower and more concentrated near zero from
-epoch 1.28 to epoch 49.38. The lower panels also show an overall decrease
-in gradient spread, with fluctuations and a spike near epoch 19.
+Figures~\ref{fig:q2_histogram_conv1} and~\ref{fig:q2_bn} show that gradient
+spread decreased over time in both layers. The histograms became narrower
+and more concentrated near zero. The standard-deviation curves in the lower
+panels show the same overall decrease, with fluctuations between minibatches.
 
-The batch-normalization bias gradients generally had a larger spread than
-the convolution weight gradients. The histograms are normalized and use
-the same axes, so their widths can be compared despite the different
-numbers of parameters. The larger spread does not mean that one layer
-learned better; these parameters have different roles and scales.
-
-The decrease in gradient size is consistent with the falling training loss
-in Figure~\ref{fig:q2_training_loss}. As the model fits the training labels
-more confidently, smaller loss gradients are expected. Differences between
-minibatches and random augmentations can explain why the gradients still
-fluctuate rather than decrease at every logged point.
+Smaller gradients are expected as the model fits the training labels more
+confidently. Together with the decreasing training loss in
+Figure~\ref{fig:q2_training_loss}, these changes provide good evidence that
+optimization is successfully minimizing the training objective. They are
+consistent with approaching a local minimum.
 \end{solution}
         
         \item We can also visualize how the feature representations specialize for different classes. Take 1000 random images from the test set of PASCAL, and extract ImageNet (finetuned) features from those images. Compute a 2D t-SNE (use \href{https://scikit-learn.org/stable/modules/generated/sklearn.manifold.TSNE.html}{sklearn}) projection of the features, and plot them with each feature color-coded by the GT class of the corresponding image. If multiple objects are active in that image, compute the color as the ``mean” color of the different classes active in that image. Add a legend explaining the mapping from color to object class. 
