@@ -1,5 +1,6 @@
 """Plot metrics where the starter supplies no plot; copy Cartucho's mAP plot."""
 from pathlib import Path
+import json
 import shutil
 import matplotlib.pyplot as plt
 from matplotlib.ticker import FuncFormatter, LogLocator
@@ -151,6 +152,48 @@ def q2_histograms():
         plt.close(fig)
 
 
+def q3_loss_curves():
+    history_path = ROOT.parent / 'runs/q3_overfit_revision/fcos_160_epoch400_seed0/history.json'
+    for mode in ['overfit', 'full']:
+        if mode == 'overfit' and history_path.exists():
+            history = json.loads(history_path.read_text())
+            if history[-1]['epoch'] != 400:
+                raise RuntimeError('Finish the overfit diagnostic before updating the report.')
+            epochs = [row['epoch'] for row in history]
+            best_epoch = min(history, key=lambda row: row['validation']['total'])['epoch']
+            zoom_end = min(epochs[-1], max(50, ((best_epoch + 49) // 25) * 25))
+            fig, axes = plt.subplots(2, 1, figsize=(7, 5.2))
+            for ax in axes:
+                ax.plot(epochs, [row['train']['total'] for row in history],
+                        label='Training subset (160 images)')
+                ax.plot(epochs, [row['validation']['total'] for row in history],
+                        label='Validation subset (320 images)', linestyle='--')
+                ax.axvline(best_epoch, color='0.45', linestyle=':',
+                           label=f'Lowest validation loss (epoch {best_epoch})')
+                ax.set(xlabel='Epoch', ylabel='Total loss (fixed normalization)')
+            axes[0].set(xlim=(0, epochs[-1]), title='Full run')
+            axes[0].legend()
+            axes[1].set(xlim=(0, zoom_end), title=f'Early run (epochs 0–{zoom_end})')
+            fig.tight_layout()
+            fig.savefig(FIGURES / 'q3_overfit.png', dpi=180)
+            plt.close(fig)
+            continue
+        components = [scalars('fcos_' + mode, 'train/loss_' + kind + '_' + mode)
+                      for kind in ['cls', 'box', 'ctr']]
+        fig, ax = plt.subplots(figsize=(7, 3.2))
+        steps = [v.step for v in components[0]]
+        assert all([v.step for v in values] == steps for values in components)
+        # Starter batch size 16: 160/16=10 subset updates per epoch;
+        # the full 2,501-image set has ceil(2501/16)=157 updates per epoch.
+        updates_per_epoch = 10 if mode == 'overfit' else 157
+        epochs = [(step + 1) / updates_per_epoch for step in steps]
+        ax.plot(epochs, [sum(v.value for v in row) for row in zip(*components)], linewidth=.7)
+        ax.set(xlabel='Epoch', ylabel='Total training loss', xlim=(0, epochs[-1]))
+        fig.tight_layout()
+        fig.savefig(FIGURES / f'q3_{mode}.png', dpi=180)
+        plt.close(fig)
+
+
 def main():
     FIGURES.mkdir(exist_ok=True)
     names = ['q1_bce_lr001_noaug', 'q1_bce_lr001_aug',
@@ -166,17 +209,7 @@ def main():
                                    ('learning_rate', 'lr', 'Learning rate')]:
             plot([(run, run)], tag, f'{question}_{suffix}.png', label)
     q2_histograms()
-    for mode in ['overfit', 'full']:
-        components = [scalars('fcos_' + mode, 'train/loss_' + kind + '_' + mode)
-                      for kind in ['cls', 'box', 'ctr']]
-        fig, ax = plt.subplots(figsize=(7, 3.2))
-        steps = [v.step for v in components[0]]
-        assert all([v.step for v in values] == steps for values in components)
-        ax.plot(steps, [sum(v.value for v in row) for row in zip(*components)], linewidth=.7)
-        ax.set(xlabel='Iteration', ylabel='Total training loss')
-        fig.tight_layout()
-        fig.savefig(FIGURES / f'q3_{mode}.png', dpi=180)
-        plt.close(fig)
+    q3_loss_curves()
     # This image is produced by the unmodified evaluator's draw_plot_func.
     shutil.copy2(ROOT.parent / 'tools/mAP/output/mAP.png', FIGURES / 'q3_map.png')
     print('Selected Q1:', best)

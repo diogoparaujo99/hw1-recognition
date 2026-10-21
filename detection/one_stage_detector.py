@@ -315,7 +315,8 @@ class FCOS(nn.Module):
                 during training.
 
         Returns:
-            Losses during training and predictions during inference.
+            Losses when ground-truth boxes are provided, otherwise predictions
+            during inference. Evaluation with boxes keeps batch statistics frozen.
         """
 
         ######################################################################
@@ -344,7 +345,7 @@ class FCOS(nn.Module):
         #                           END OF YOUR CODE                         #
         ######################################################################
 
-        if not self.training:
+        if not self.training and gt_boxes is None:
             # During inference, just go to this method and skip rest of the
             # forward pass.
             # fmt: off
@@ -390,10 +391,11 @@ class FCOS(nn.Module):
         pred_boxreg_deltas = self._cat_across_fpn_levels(pred_boxreg_deltas)
         pred_ctr_logits = self._cat_across_fpn_levels(pred_ctr_logits)
 
-        # Perform EMA update of normalizer by number of positive locations.
+        # Update the normalizer only while training; evaluation must not change it.
         num_pos_locations = (matched_gt_boxes[:, :, 4] != -1).sum()
         pos_loc_per_image = num_pos_locations.item() / images.shape[0]
-        self._normalizer = 0.9 * self._normalizer + 0.1 * pos_loc_per_image
+        if self.training:
+            self._normalizer = 0.9 * self._normalizer + 0.1 * pos_loc_per_image
 
         ######################################################################
         # TODO: Calculate losses per location for classification, box reg and

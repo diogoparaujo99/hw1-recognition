@@ -82,6 +82,40 @@ Figure 3.3 is copied directly from `../tools/mAP/output/mAP.png`, produced by Ca
 
 The few correctness fixes outside TODOs are moving the detector writer's close call after training, retaining ground truth for images with zero predictions, honoring the evaluation output directory, and putting the classifier in evaluation mode for its final score. The final score is logged before closing the classification writer; the `SimpleCNN` import selects the Q1 loss without changing function signatures. Other changes outside TODOs keep large artifacts out of the source/submission folders and set the detector's seed to 0.
 
+## Small-subset overfitting diagnostic
+
+Figure 3.1 uses a separate diagnostic; the original 250-update run and the full-training checkpoint remain under `../runs/starter_revision/` and `../checkpoints/starter_revision/`. The diagnostic keeps the starter's 160 evenly spaced training images, 224-pixel inputs, batch size 16, seed 0, and SGD (learning rate 0.005, momentum 0.9, weight decay 0.0001). It extends training to 400 epochs, or 4,000 updates, with the same scheduler rule: multiply the rate by 0.1 at 60% and 90% of the updates. A fixed 320-image subset of the separate validation split supplies the validation curve; its images never enter the optimizer.
+
+From `detection/`, run:
+
+```shell
+CUDA_VISIBLE_DEVICES=1 python overfit_diagnostic.py --epochs 400 --run-name fcos_160_epoch400_seed0
+```
+
+Logs, settings, source hashes, losses, and AP results are saved under `../runs/q3_overfit_revision/fcos_160_epoch400_seed0/`; checkpoints go under `../checkpoints/q3_overfit_revision/fcos_160_epoch400_seed0/`. Use a different run name for another experiment. Training and validation losses are measured at epochs 0, 1, 2, and every five epochs, in evaluation mode without gradients or changes to batch statistics. Both use the same fixed normalizer, 150, so changes in the training EMA cannot create an apparent validation-loss trend. The optimizer still uses the original EMA-normalized loss. Each plotted point averages all images in its subset.
+
+The only changes to `FCOS.forward` allow evaluation with supplied ground-truth boxes to return losses and keep the EMA frozen during evaluation. Training and ordinary inference follow their existing paths. Runtime checks verify that each loss evaluation preserves the weights, buffers, and training normalizer.
+
+At epochs 25, 100, and 400, the supplied inference writer and an unchanged copy of Cartucho's evaluator measure AP on both subsets (confidence 0.4, NMS IoU 0.6, evaluation IoU 0.5). These are diagnostic subset scores, separate from the full-validation result in Figure 3.3. Centerness has soft targets, so fitting those targets exactly does not require a zero total loss.
+
+The lowest measured validation loss was 1.3099 at epoch 120. Training loss then fell from 0.6944 to 0.5499, while validation loss rose to 1.4844 at epoch 400. This shows loss-based overfitting after about epoch 120.
+
+| Epoch | Training-subset mAP | Validation-subset mAP |
+| --- | --- | --- |
+| 25 | 0.30% | 0.18% |
+| 100 | 29.42% | 1.66% |
+| 400 | 93.95% | 7.79% |
+
+Both AP calculations include all 20 classes. The large final gap shows a strong fit to the small training subset with poor generalization; training detections are not perfect. Validation AP still improves across these checkpoints even though validation loss increases later, so the loss-based conclusion does not mean that every validation metric deteriorates.
+
+To regenerate only the Q3 loss figures from the repository root:
+
+```shell
+python -c 'from scripts.make_figures import q3_loss_curves; q3_loss_curves()'
+```
+
+Both loss figures use epochs. The original full run has 157 updates per epoch (2,501 images, batch size 16); Figure 3.2 keeps its original loss values.
+
 ## Report and submission
 
 ```shell
