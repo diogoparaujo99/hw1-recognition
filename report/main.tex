@@ -331,16 +331,29 @@ In this question, we will try to recognize objects in natural images from the PA
         \item Describe the hyperparameters you experimented with and the effects they had on the train and test metrics.
 
         \begin{solution}
-I tested learning rates of 0.001 and 0.0003, each with and without data augmentation. All four runs used Adam, batch size 64, seed 0, and five epochs. StepLR halved the learning rate after epoch three. Augmentation used random horizontal flips and crops with four-pixel reflection padding.
+I tested learning rates of 0.001 and 0.0003, each with and without data
+augmentation. All four runs used Adam, batch size 64, seed 0, and five epochs.
+StepLR halved the learning rate after epoch three. Augmentation used random
+horizontal flips and crops with four-pixel reflection padding.
 
-A smaller learning rate makes smaller updates and may need more epochs to converge. At 0.0003, both runs finished with higher logged training loss and lower test mAP than at 0.001. This is consistent with slower learning at 0.0003 within the five-epoch budget.
+The table shows that 0.0003 gave a higher last logged training loss and lower
+final test mAP than 0.001, both with and without augmentation. This is
+consistent with the smaller learning rate making slower progress within five
+epochs. These results do not establish convergence.
 
-At both learning rates, test mAP was still improving near epoch five. Training for more epochs might therefore improve test mAP, although longer training could also lead to overfitting.
+Figures~\ref{fig:q1_1_compare_loss} and~\ref{fig:q1_1_compare_map} compare
+augmentation at the same initial learning rate, 0.001. With augmentation,
+the training loss was generally higher, but final test mAP improved from
+0.2545 to 0.2610. The same pattern appears at 0.0003 in the table. This
+suggests that the transformed images were harder to fit but helped the model
+generalize to the test images.
 
-I could also have tested higher learning rates. A learning rate that is too high can overshoot and make training unstable. However, I did not observe sustained instability at 0.001, and I did not test a higher learning rate.”
-
-Augmentation increased the last logged training loss but improved final test mAP at both learning rates. My conclusion is that the transformed images were harder to fit during the training, but lead to better generalization. Our best run used 0.001 with augmentation: final mAP was 0.2610, the last logged minibatch loss was 0.1729, and the final learning rate was 0.0005. The losses in the table are individual logged minibatches, not epoch averages. The augmentation comparison plots use
-the same initial learning rate, 0.001.
+I selected 0.001 with augmentation because it gave the highest final test
+mAP, 0.2610. Figures~\ref{fig:q1_2_loss}--\ref{fig:q1_2_lr} show this run.
+Its last logged training loss was 0.1729 and its final learning rate was
+0.0005. Test mAP was still increasing at epoch five, so more training might
+help, although the current curves cannot show whether it would cause
+overfitting. The losses below are logged minibatch values, not epoch averages.
 
 \begin{center}
 \begin{tabular}{llll}
@@ -397,29 +410,23 @@ Hopefully, we get much better accuracy with the deeper models! Since 2012, much 
         \item How does the test mAP and training loss change over time? Why do you think this is happening?
 
         \begin{solution}
-I fine-tuned torchvision's ImageNet-pretrained ResNet-18 for 50 epochs.
-I used Adam with an initial learning rate of 0.0001, batch size 64, and seed 0.
-I replaced the classifier with a new 512-to-20 linear layer and trained all
-layers on 224-by-224 images. StepLR multiplied the learning rate by 0.3
-after epochs 15, 30, and 45.
+Figure~\ref{fig:q2_training_loss} shows that training loss decreased rapidly,
+from about 0.75 to 0.014 near epoch 10. After epoch 30, the logged loss
+fluctuated roughly between 0.002 and 0.004, ending at 0.0021.
 
-Training loss decreased from 0.7541 to 0.0021 at the last logged
-minibatch, near epoch 49.38. Test mAP rose from 0.0997 after the
-first update to a final score of 0.8340. The highest logged mAP was
-0.8346, near epoch 25.71.
+In Figure~\ref{fig:q2_map}, test mAP reached about 0.83 by epoch five and
+then fluctuated around this level, ending at 0.8340. Later reductions in
+training loss did not produce a clear improvement in test mAP. The model
+continued to fit the training data more closely without a comparable gain
+on the test images.
 
-Most of the test improvement happened early because the pretrained features
-already transferred well. Later, logged training loss decreased overall while test mAP
-fluctuated around a plateau. Fitting the training data more closely did not
-produce comparable test gains.
-
-Both figures use raw TensorBoard values without smoothing. Loss is logged
-for one minibatch every 100 updates; the logarithmic scale makes its late
-variation visible. The full mAP axis includes the low first score, which
-compresses later fluctuations. The second panel shows those fluctuations
-more clearly. These scores use the unchanged assignment evaluator, which
-averages class AP across test batches rather than one global ranking.
-The final 50-epoch checkpoint supplies the t-SNE features.
+The rapid early improvement is consistent with the ImageNet-pretrained
+features already being useful for recognizing these objects. ResNet reached
+a much higher test mAP within five epochs than the simple CNN, which reached
+0.2610 in Figure~\ref{fig:q1_2_map}. The extra 45 epochs therefore do not
+explain this early gap. The deeper architecture may also help, but the
+experiments differ in pretraining and image resolution, so this comparison
+does not isolate the effect of network depth.
 \end{solution}
         
         \begin{figure}[H]
@@ -441,29 +448,22 @@ The final 50-epoch checkpoint supplies the t-SNE features.
         \item Compare the two histogram plots. How do they change over time? Why do you think this is happening?
 
         \begin{solution}
-The overlaid histograms compare the same three logged minibatches, near
-epochs 1.28, 25.33, and 49.38. Both layers use common bins and axis limits.
-Each histogram has unit area, so the area over a range gives the fraction
-of parameters with gradients in that range. This accounts for the different
-parameter counts: 36,864 convolution weights and 512 batch-normalization
-biases. The plots use the original TensorBoard counts without smoothing
-or interpolation.
+Figures~\ref{fig:q2_histogram_conv1} and~\ref{fig:q2_bn} show that both
+gradient histograms became narrower and more concentrated near zero from
+epoch 1.28 to epoch 49.38. The lower panels also show an overall decrease
+in gradient spread, with fluctuations and a spike near epoch 19.
 
-The later histograms are narrower near zero. The lower plots check this
-trend across all 40 logged minibatches. From the first to the last record,
-the convolution's gradient standard deviation falls from 0.000159 to
-0.000022, and the batch-normalization bias falls from 0.000569 to 0.000035.
-The decrease is not monotonic: both curves fluctuate. The spike near
-epoch 19 was logged on a final batch of 19 images instead of the usual 64.
-This smaller batch may contribute to the variation, alongside differences
-in image content and augmentation.
+The batch-normalization bias gradients generally had a larger spread than
+the convolution weight gradients. The histograms are normalized and use
+the same axes, so their widths can be compared despite the different
+numbers of parameters. The larger spread does not mean that one layer
+learned better; these parameters have different roles and scales.
 
-Smaller gradients are consistent with the lower training loss. Meanwhile,
-test mAP largely plateaus, so the closer training fit does not produce
-comparable test gains. The batch-normalization gradients generally have a
-larger spread, but the parameters have different roles and scales; larger
-gradients alone do not imply better learning. These plots show variation
-across parameters within a minibatch, not uncertainty across training runs.
+The decrease in gradient size is consistent with the falling training loss
+in Figure~\ref{fig:q2_training_loss}. As the model fits the training labels
+more confidently, smaller loss gradients are expected. Differences between
+minibatches and random augmentations can explain why the gradients still
+fluctuate rather than decrease at every logged point.
 \end{solution}
         
         \item We can also visualize how the feature representations specialize for different classes. Take 1000 random images from the test set of PASCAL, and extract ImageNet (finetuned) features from those images. Compute a 2D t-SNE (use \href{https://scikit-learn.org/stable/modules/generated/sklearn.manifold.TSNE.html}{sklearn}) projection of the features, and plot them with each feature color-coded by the GT class of the corresponding image. If multiple objects are active in that image, compute the color as the ``mean” color of the different classes active in that image. Add a legend explaining the mapping from color to object class. 
@@ -479,20 +479,19 @@ across parameters within a minibatch, not uncertainty across training runs.
         \item Briefly describe what you observe in the t-SNE plot. Does this match your expectations?
 
         \begin{solution}
-I sample 1,000 distinct test images with seed 0 and extract the 512 features
-after global average pooling from the final, 50-epoch checkpoint. The sklearn
-t-SNE uses perplexity 30, PCA initialization, automatic learning rate,
-1,500 iterations, and random state 0. Each image receives the arithmetic mean
-of the fixed RGB colors for its active ground-truth classes. The legend lists
-all 20 classes.
+Figure~\ref{fig:q2_tsne} shows several groups with similar class colors.
+For example, cars form a group at the upper left, birds at the lower left,
+and cats near the bottom left. Aeroplanes and trains also form visible
+groups. Many person-colored points mix with other colors in the
+center-right region.
 
-Aeroplanes, birds, cats, cars, and trains form visible groups. The large
-center-right region mixes person-colored points with other colors. This
-matches my expectation of partial class structure: class features separate
-some objects, while multi-object scenes share objects and backgrounds.
-Blended colors also make some label combinations look similar. t-SNE shows
-local neighborhoods; group areas and distances between separated groups are
-not measures of classification accuracy.
+This matches my expectation that fine-tuned features would group images
+containing similar objects. Some overlap is also expected because an image
+can contain several classes and share features with different groups.
+Since multi-label images use the mean of their class colors, a blended color
+does not by itself indicate a classification error. The plot suggests
+class structure in the features, but it does not measure classification
+accuracy.
 \end{solution}
         
     \end{itemize}
@@ -562,28 +561,27 @@ In this problem, we'll be implementing supervised {\href{https://arxiv.org/abs/1
         \item What can you conclude from the above visualizations? When does the model succeed or fail? How can you improve the results for the failure cases?
 
         \begin{solution}
-FCOS reaches 37.34\% mAP on all 2,510 validation images, exceeding the 20\%
-target. Inference uses confidence 0.4 and NMS IoU 0.6; Cartucho evaluates at
-IoU 0.5. I preserve the supplied center crop and count images with no
-predictions. Figure 3.3 is the original evaluator's generated mAP plot.
+Figure~\ref{fig:overfit_plot} shows that loss decreased overall after an
+early rise, but still fluctuated around 2.2 near the end. This shows a better
+fit to the small training subset, rather than complete memorization.
+In Figure~\ref{fig:full_loss_plot}, full-training loss decreased and finished
+around 0.8.
 
-The 250-iteration sanity run uses 160 training images. Total loss peaks at
-5.703 and averages 2.206 over the final 20 iterations. This shows improved
-fit after the EMA-normalizer transient, but does not demonstrate complete
-memorization. Full training uses the prescribed 9,000 iterations; its final
-20-iteration mean loss is 0.820. I retain the pretrained RegNet backbone and
-three-level FPN from the scaffold.
+Figure~\ref{fig:final_mAP} shows an overall mAP of 37.34\%, above the 20\%
+target. Performance varied considerably across classes: train and cat AP
+were about 66\% and 64\%, while bottle and potted-plant AP were only about
+5\% and 8\%.
 
-The TensorBoard screenshot shows the first two images of the supplied
-10-image grid. The train is correctly classified with a roughly aligned box.
-Several chairs are detected in the cluttered room, but overlapping boxes and
-imprecise boundaries remain. Across the validation set, train AP is 66.07\%
-and cat AP is 64.32\%, while bottle AP is 5.26\% and potted-plant AP is
-7.75\%. Larger inputs could preserve detail for small objects; more varied
-clutter examples could help occluded objects. Threshold and NMS tuning could
-reduce redundant chair boxes, but may also remove nearby true objects. These
-two images illustrate localization errors; they do not establish their
-frequency.
+In Figure~\ref{fig:inference_results}, the train was correctly classified,
+with predicted boxes roughly aligned with the ground truth. In the
+cluttered room, the chair predictions overlapped and did not closely match
+the marked boundaries. These examples show that the model can recognize
+objects but still make localization and duplicate-detection errors.
+
+I would test larger input images to preserve detail for small objects and
+more training examples with clutter and occlusion. To reduce duplicate
+boxes, I would tune NMS while checking that nearby true objects are still
+detected.
 \end{solution}
 
     \end{itemize}
