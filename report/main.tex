@@ -552,8 +552,7 @@ In this problem, we'll be implementing supervised {\href{https://arxiv.org/abs/1
         \begin{solution}
 Figure~\ref{fig:overfit_plot} shows that loss decreased overall after an
 early rise, but still fluctuated around 2.2 near the end. This shows a better
-fit to the small training subset, rather than complete memorization.
-In Figure~\ref{fig:full_loss_plot}, full-training loss decreased and finished
+fit to the small training subset, rather than complete memorization. In Figure~\ref{fig:full_loss_plot}, full-training loss decreased and finished
 around 0.8.
 
 Figure~\ref{fig:final_mAP} shows an overall mAP of 37.34\%, above the 20\%
@@ -564,11 +563,12 @@ were about 66\% and 64\%, while bottle and potted-plant AP were only about
 In Figure~\ref{fig:inference_results}, the train was correctly classified,
 with predicted boxes roughly aligned with the ground truth. In the
 cluttered room, the chair predictions overlapped and did not closely match
-the marked boundaries. These examples show that the model can recognize
-objects but still make localization and duplicate-detection errors.
+the marked boundaries. Both cases align with the results in Figure \ref{fig:final_mAP}. 
 
-I would test larger input images to preserve detail for small objects and
-more training examples with clutter and occlusion. To reduce duplicate
+Ultimately e examples in Figure~\ref{fig:inference_results} show that for the worst performing classes (shown in Figure \ref{fig:final_mAP}, e.g., chair, the model can recognize objects in the image, but makes localization and duplicate-detection errors.
+
+As we can see from both Figures~\ref{fig:final_mAP} and~\ref{fig:inference_results}, the worst three performing classes are relatively small objects. Therefore I would test larger input images to preserve detail for small objects and
+I would had more training examples with clutter and occlusion for the model to learn better to identify object under those conditions. To reduce duplicate
 boxes, I would tune NMS while checking that nearby true objects are still
 detected.
 \end{solution}
