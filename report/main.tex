@@ -397,10 +397,11 @@ Hopefully, we get much better accuracy with the deeper models! Since 2012, much 
         \item How does the test mAP and training loss change over time? Why do you think this is happening?
 
         \begin{solution}
-I fine-tuned the ImageNet-pretrained ResNet-18 for 50 epochs, using Adam,
-learning rate 0.0001, batch size 64, and seed 0. I replaced its classifier
-with a new 512-to-20 linear layer and trained all layers on 224-by-224 images.
-StepLR multiplied the learning rate by 0.3 after epochs 15, 30, and 45.
+I fine-tuned torchvision's ImageNet-pretrained ResNet-18 for 50 epochs.
+I used Adam with an initial learning rate of 0.0001, batch size 64, and seed 0.
+I replaced the classifier with a new 512-to-20 linear layer and trained all
+layers on 224-by-224 images. StepLR multiplied the learning rate by 0.3
+after epochs 15, 30, and 45.
 
 Training loss decreased from 0.7541 to 0.0021 at the last logged
 minibatch, near epoch 49.38. Test mAP rose from 0.0997 after the
@@ -408,7 +409,7 @@ first update to a final score of 0.8340. The highest logged mAP was
 0.8346, near epoch 25.71.
 
 Most of the test improvement happened early because the pretrained features
-already transferred well. Later, training loss kept falling while test mAP
+already transferred well. Later, logged training loss decreased overall while test mAP
 fluctuated around a plateau. Fitting the training data more closely did not
 produce comparable test gains.
 
@@ -416,14 +417,16 @@ Both figures use raw TensorBoard values without smoothing. Loss is logged
 for one minibatch every 100 updates; the logarithmic scale makes its late
 variation visible. The full mAP axis includes the low first score, which
 compresses later fluctuations. The second panel shows those fluctuations
-more clearly. The final 50-epoch checkpoint supplies the t-SNE features.
+more clearly. These scores use the unchanged assignment evaluator, which
+averages class AP across test batches rather than one global ranking.
+The final 50-epoch checkpoint supplies the t-SNE features.
 \end{solution}
         
         \begin{figure}[H]
         \centering
         % TODO: put your plot here.
         \includegraphics[width=0.95\linewidth,height=0.42\textheight,keepaspectratio]{report/figures/q2_hist_conv.png}
-        \caption{Gradient histograms of the \texttt{Conv1} layer. Bins and axis limits match Figure~\ref{fig:q2_bn}.}
+        \caption{\texttt{Conv1} gradients. Top: normalized histograms on shared axes. Bottom: gradient standard deviation across parameters at every logged minibatch. Colored points identify the histograms above.}
         \label{fig:q2_histogram_conv1}
         \end{figure}
         
@@ -431,34 +434,36 @@ more clearly. The final 50-epoch checkpoint supplies the t-SNE features.
         \centering
         % TODO: put your plot here.
         \includegraphics[width=0.95\linewidth,height=0.42\textheight,keepaspectratio]{report/figures/q2_hist_bn.png}
-        \caption{Gradient histograms of the \texttt{BN4} layer. Each panel is normalized to unit area.}
+        \caption{\texttt{BN4} gradients. The histogram and spread axes match Figure~\ref{fig:q2_histogram_conv1}. The lower axis uses a logarithmic scale.}
         \label{fig:q2_bn}
         \end{figure}
 
         \item Compare the two histogram plots. How do they change over time? Why do you think this is happening?
 
         \begin{solution}
-Each panel shows the gradients from one logged minibatch, near epochs
-1.28, 25.33, and 49.38. The horizontal axis is the
-gradient value. The vertical axis is probability density: the area over a
-range gives the fraction of parameters with gradients in that range. All
-six panels use the same bins and axis limits. Normalization makes the
-36,864 convolution gradients comparable with the 512 batch-normalization
-bias gradients.
+The overlaid histograms compare the same three logged minibatches, near
+epochs 1.28, 25.33, and 49.38. Both layers use common bins and axis limits.
+Each histogram has unit area, so the area over a range gives the fraction
+of parameters with gradients in that range. This accounts for the different
+parameter counts: 36,864 convolution weights and 512 batch-normalization
+biases. The plots use the original TensorBoard counts without smoothing
+or interpolation.
 
-The starter already logs these gradients through TensorBoard after
-backpropagation. I combine adjacent stored histogram bins onto shared
-boundaries, preserving all counts without interpolation. The panels show
-early, middle, and late training without the overlapping slices of the
-TensorBoard display.
+The later histograms are narrower near zero. The lower plots check this
+trend across all 40 logged minibatches. From the first to the last record,
+the convolution's gradient standard deviation falls from 0.000159 to
+0.000022, and the batch-normalization bias falls from 0.000569 to 0.000035.
+The decrease is not monotonic: both curves fluctuate. The spike near
+epoch 19 was logged on a final batch of 19 images instead of the usual 64.
+This smaller batch may contribute to the variation, alongside differences
+in image content and augmentation.
 
-Both distributions become narrower near zero. The convolution's gradient
-standard deviation decreases from 0.000116 to 0.000022; the
-batch-normalization bias changes from 0.000180 to 0.000035.
-This agrees with the falling training loss. The two parameters have different
-roles and scales, so a larger gradient does not imply better learning.
-The learning-rate schedule directly changes update sizes; it does not
-directly multiply the gradients shown here.
+Smaller gradients are consistent with the lower training loss. Meanwhile,
+test mAP largely plateaus, so the closer training fit does not produce
+comparable test gains. The batch-normalization gradients generally have a
+larger spread, but the parameters have different roles and scales; larger
+gradients alone do not imply better learning. These plots show variation
+across parameters within a minibatch, not uncertainty across training runs.
 \end{solution}
         
         \item We can also visualize how the feature representations specialize for different classes. Take 1000 random images from the test set of PASCAL, and extract ImageNet (finetuned) features from those images. Compute a 2D t-SNE (use \href{https://scikit-learn.org/stable/modules/generated/sklearn.manifold.TSNE.html}{sklearn}) projection of the features, and plot them with each feature color-coded by the GT class of the corresponding image. If multiple objects are active in that image, compute the color as the ``mean” color of the different classes active in that image. Add a legend explaining the mapping from color to object class. 

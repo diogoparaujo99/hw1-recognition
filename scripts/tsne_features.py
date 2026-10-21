@@ -14,7 +14,7 @@ from torch.utils.data import DataLoader, Subset
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'q1_q2_classification'))
-from train_q2 import ResNet
+from train_q2 import ResNet  # Required to load the starter's full-model checkpoint.
 from voc_dataset import VOCDataset
 
 

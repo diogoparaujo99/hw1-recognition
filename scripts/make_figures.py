@@ -2,6 +2,7 @@
 from pathlib import Path
 import shutil
 import matplotlib.pyplot as plt
+from matplotlib.ticker import FuncFormatter, LogLocator
 import numpy as np
 from tensorboard.backend.event_processing.event_accumulator import EventAccumulator
 
@@ -68,7 +69,31 @@ def plot(runs, tag, filename, ylabel):
     plt.close(fig)
 
 
+def histogram_density(histogram, edges):
+    """Combine complete TensorBoard buckets and preserve their total count."""
+    assert histogram.bucket[0] == 0
+    counts = np.zeros(len(edges) - 1)
+    buckets = zip(histogram.bucket_limit[:-1], histogram.bucket_limit[1:], histogram.bucket[1:])
+    for low, high, count in buckets:
+        if count:
+            index = np.searchsorted(edges, high, side='left') - 1
+            assert edges[index] <= low and high <= edges[index + 1]
+            counts[index] += count
+    assert counts.sum() == histogram.num
+    density = counts / (histogram.num * np.diff(edges))
+    assert np.isclose(np.sum(density * np.diff(edges)), 1)
+    return density
+
+
+def gradient_std(histogram):
+    """Use the exact first and second moments stored in TensorBoard."""
+    mean = histogram.sum / histogram.num
+    variance = histogram.sum_squares / histogram.num - mean ** 2
+    return np.sqrt(max(variance, 0))
+
+
 def q2_histograms():
+    """Compare selected histograms and gradient spread throughout training."""
     events = EventAccumulator(str(ROOT.parent / 'runs/q2_epoch_revision/q2_epoch_rerun'),
                               size_guidance={'histograms': 0, 'scalars': 0}).Reload()
     rates = events.Scalars('learning_rate')
@@ -77,48 +102,50 @@ def q2_histograms():
         raise RuntimeError('Finish all 50 Q2 epochs before generating histogram panels.')
     layers = [('resnet.layer1.1.conv1.weight/grad', 'q2_hist_conv.png'),
               ('resnet.layer4.0.bn2.bias/grad', 'q2_hist_bn.png')]
-    selected = [[min(events.Histograms(tag), key=lambda v: abs((v.step + 1) / steps_per_epoch - epoch))
-                 for epoch in [1, 25, 50]] for tag, filename in layers]
+    histories = [events.Histograms(tag) for tag, _ in layers]
+    selected = []
+    for history in histories:
+        selected.append([min(history, key=lambda v: abs((v.step + 1) / steps_per_epoch - epoch))
+                         for epoch in [1, 25, 50]])
     # All summaries use the same native TensorBoard bucket grid. Select
     # common boundaries and combine complete buckets, without interpolation.
     grid = np.unique(np.concatenate([v.histogram_value.bucket_limit for row in selected for v in row]))
-    indices = np.searchsorted(grid, np.linspace(grid[0], grid[-1], 41)).clip(0, len(grid) - 1)
+    indices = np.searchsorted(grid, np.linspace(grid[0], grid[-1], 81)).clip(0, len(grid) - 1)
     edges = np.unique(grid[indices])
-    densities = []
-    for row in selected:
-        layer_densities = []
-        for value in row:
-            h = value.histogram_value
-            assert h.bucket[0] == 0
-            counts = np.zeros(len(edges) - 1)
-            for low, high, count in zip(h.bucket_limit[:-1], h.bucket_limit[1:], h.bucket[1:]):
-                if count:
-                    index = np.searchsorted(edges, high, side='left') - 1
-                    assert edges[index] <= low and high <= edges[index + 1]
-                    counts[index] += count
-            assert counts.sum() == h.num
-            density = counts / (h.num * np.diff(edges))
-            assert np.isclose(np.sum(density * np.diff(edges)), 1)
-            layer_densities.append(density)
-        densities.append(layer_densities)
+    densities = [[histogram_density(value.histogram_value, edges) for value in row]
+                 for row in selected]
+    spread = np.array([[gradient_std(value.histogram_value) for value in history]
+                       for history in histories])
     ymax = max(density.max() for row in densities for density in row) * 1.08
     limit = max(abs(edges[0]), abs(edges[-1]))
     np.savez_compressed(ROOT.parent / 'runs/q2_epoch_revision/histogram_panels.npz',
                         edges=edges, densities=np.array(densities),
                         steps=np.array([[v.step for v in row] for row in selected]),
-                        parameter_counts=np.array([row[0].histogram_value.num for row in selected]))
-    for (tag, filename), row, layer_densities in zip(layers, selected, densities):
-        fig, axes = plt.subplots(1, 3, figsize=(8, 2.8), sharex=True, sharey=True)
-        for ax, value, density in zip(axes, row, layer_densities):
-            ax.stairs(density, edges, fill=True, alpha=.65)
-            ax.axvline(0, color='black', linewidth=.6, linestyle=':')
-            ax.set(title=f'Epoch {(value.step + 1) / steps_per_epoch:.2f}',
-                   xlabel='Gradient', xlim=(-limit, limit), ylim=(0, ymax))
-            ax.ticklabel_format(axis='both', style='sci', scilimits=(0, 0))
-            ax.locator_params(axis='x', nbins=3)
+                        parameter_counts=np.array([row[0].histogram_value.num for row in selected]),
+                        history_steps=np.array([[v.step for v in history] for history in histories]),
+                        history_std=spread)
+    colors = ['#0072B2', '#D55E00', '#7B3294']
+    linestyles = ['-', '--', ':']
+    for layer_index, (tag, filename) in enumerate(layers):
+        fig, axes = plt.subplots(2, 1, figsize=(7, 4.2), gridspec_kw={'height_ratios': [1.6, 1]})
+        for value, density, color, style in zip(selected[layer_index], densities[layer_index], colors, linestyles):
+            epoch = (value.step + 1) / steps_per_epoch
+            axes[0].stairs(density, edges, color=color, linestyle=style, linewidth=1.5,
+                           label=f'Epoch {epoch:.2f}')
+            axes[1].scatter(epoch, gradient_std(value.histogram_value), color=color, s=25, zorder=3)
+        axes[0].axvline(0, color='gray', linewidth=.6)
+        axes[0].set(xlabel='Gradient', xlim=(-limit, limit), ylim=(0, ymax))
         axes[0].set_ylabel('Probability density')
+        axes[0].ticklabel_format(axis='both', style='sci', scilimits=(0, 0), useMathText=True)
+        axes[0].legend(frameon=False, fontsize=9)
+        epochs = [(v.step + 1) / steps_per_epoch for v in histories[layer_index]]
+        axes[1].plot(epochs, spread[layer_index], color='#334155', marker='.', markersize=3, linewidth=1)
+        axes[1].set(xlabel='Epoch', ylabel='SD across parameters\n(log scale)', xlim=(0, 50),
+                    ylim=(spread.min() * .85, spread.max() * 1.15), yscale='log')
+        axes[1].yaxis.set_major_locator(LogLocator(base=10, subs=(1, 2, 5)))
+        axes[1].yaxis.set_major_formatter(FuncFormatter(lambda value, _: f'{value:.0e}'))
         fig.suptitle(tag.removeprefix('resnet.').removesuffix('/grad') +
-                     f' ({int(row[0].histogram_value.num):,} parameters)')
+                     f' ({int(selected[layer_index][0].histogram_value.num):,} parameters)')
         fig.tight_layout()
         fig.savefig(FIGURES / filename, dpi=180)
         plt.close(fig)

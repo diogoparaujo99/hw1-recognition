@@ -96,7 +96,11 @@ For the fresh Q1 dashboard, use `--logdir ../runs/q1_bce_revision` in the Tensor
 
 The assignment provides no t-SNE implementation or combined scalar/loss plotting function, so the small scripts handle those deliverables. t-SNE uses the final 50-epoch model, 1,000 distinct test images, seed 0, the 512-dimensional pooled features, sklearn, and the required mean RGB class colors. Detector loss curves sum the three losses already logged by the starter.
 
-The starter already logs gradients using `SummaryWriter.add_histogram` after backpropagation and before the optimizer update. It provides no static histogram plotting template. Q2 now uses three flat histogram panels per layer, selected nearest epochs 1, 25, and 50 and labeled with the actual recorded epochs. Native TensorBoard buckets are combined onto common boundaries without interpolation. Counts are divided by parameter count and bin width so each density integrates to one. Both layers share gradient and density limits; no tails are excluded.
+The starter already logs gradients using `SummaryWriter.add_histogram` after backpropagation and before the optimizer update. It provides no static histogram plotting template. Q2 overlays the histograms nearest epochs 1, 25, and 50 for each layer, labeled with the actual recorded epochs. Below each overlay, the exact gradient standard deviation across parameters is plotted for all 40 logged minibatches on a logarithmic scale. Colored points connect the selected histograms to the history.
+
+Native TensorBoard buckets are combined onto common boundaries without interpolation. Counts are divided by parameter count and bin width so each density integrates to one. Both layers share gradient, density, and standard-deviation limits; no tails are excluded.
+
+Spread is computed from the original logged first and second moments, independently of histogram binning. The complete history shows that the overall decrease is not monotonic. Plot data, including the full spread history, are saved outside the repository in `../runs/q2_epoch_revision/histogram_panels.npz`.
 
 For optional native TensorBoard screenshots, install browser tooling with `python -m pip install playwright` and `python -m playwright install chromium`, then run:
 
